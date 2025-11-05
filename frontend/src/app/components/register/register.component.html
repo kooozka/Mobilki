@@ -1,0 +1,62 @@
+<div class="register-container">
+  <div class="register-box">
+    <h2>Register</h2>
+    
+    <div *ngIf="errorMessage" class="alert alert-error">
+      {{ errorMessage }}
+    </div>
+    
+    <div *ngIf="successMessage" class="alert alert-success">
+      {{ successMessage }}
+    </div>
+    
+    <form (ngSubmit)="onSubmit()" #registerForm="ngForm">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email"
+          [(ngModel)]="registerData.email"
+          required
+          email
+          class="form-control">
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input 
+          type="password" 
+          id="password" 
+          name="password"
+          [(ngModel)]="registerData.password"
+          required
+          minlength="6"
+          class="form-control">
+      </div>
+
+      <div class="form-group">
+        <label for="role">Role</label>
+        <select 
+          id="role" 
+          name="role"
+          [(ngModel)]="registerData.role"
+          required
+          class="form-control">
+          <option value="">Select a role...</option>
+          <option *ngFor="let role of roles" [value]="role">
+            {{ getRoleDisplayName(role) }}
+          </option>
+        </select>
+      </div>
+      
+      <button type="submit" [disabled]="!registerForm.valid" class="btn btn-primary">
+        Register
+      </button>
+    </form>
+    
+    <p class="login-link">
+      Already have an account? <a routerLink="/login">Login here</a>
+    </p>
+  </div>
+</div>

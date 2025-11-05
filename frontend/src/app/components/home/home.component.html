@@ -1,0 +1,15 @@
+<div class="home-container">
+  <div class="home-content">
+    <h1>Welcome to the Application!</h1>
+    
+    <div class="user-info" *ngIf="user">
+      <h2>User Information</h2>
+      <p><strong>Email:</strong> {{ user.email }}</p>
+      <p><strong>Role:</strong> {{ getRoleDisplayName(user.role) }}</p>
+    </div>
+    
+    <button (click)="logout()" class="btn btn-logout">
+      Logout
+    </button>
+  </div>
+</div>
