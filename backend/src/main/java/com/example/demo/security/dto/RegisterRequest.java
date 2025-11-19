@@ -1,4 +1,4 @@
-package com.example.demo.dto;
+package com.example.demo.security.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -7,7 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import com.example.demo.model.UserRole;
+import com.example.demo.security.model.UserRole;
 import jakarta.validation.constraints.NotNull;
 
 @Data

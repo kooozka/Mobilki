@@ -80,6 +80,11 @@ export class AuthService {
     return user ? JSON.parse(user) : null;
   }
 
+  getCurrentUser(): any {
+    const user = localStorage.getItem(this.userKey);
+    return user ? JSON.parse(user) : null;
+  }
+
   isLoggedIn(): boolean {
     return this.hasToken();
   }

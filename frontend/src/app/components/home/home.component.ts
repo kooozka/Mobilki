@@ -19,6 +19,34 @@ export class HomeComponent implements OnInit {
 
   ngOnInit(): void {
     this.user = this.authService.getUser();
+    console.log('Home component - user:', this.user);
+    this.redirectBasedOnRole();
+  }
+
+  redirectBasedOnRole(): void {
+    if (!this.user) {
+      this.router.navigate(['/login']);
+      return;
+    }
+
+    console.log('Redirecting based on role:', this.user.role);
+
+    switch (this.user.role) {
+      case 'CLIENT':
+        this.router.navigate(['/client/dashboard']);
+        break;
+      case 'DISPATCH_MANAGER':
+        this.router.navigate(['/dispatch-manager/dashboard']);
+        break;
+      case 'DRIVER':
+        this.router.navigate(['/driver/dashboard']);
+        break;
+      case 'ADMIN':
+        this.router.navigate(['/admin/dashboard']);
+        break;
+      default:
+        console.warn('Unknown role:', this.user.role);
+    }
   }
 
   logout(): void {

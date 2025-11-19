@@ -1,10 +1,10 @@
-package com.example.demo.controller;
+package com.example.demo.security.controller;
 
-import com.example.demo.dto.AuthResponse;
-import com.example.demo.dto.LoginRequest;
-import com.example.demo.dto.RegisterRequest;
-import com.example.demo.model.UserRole;
-import com.example.demo.service.AuthService;
+import com.example.demo.security.dto.AuthResponse;
+import com.example.demo.security.dto.LoginRequest;
+import com.example.demo.security.dto.RegisterRequest;
+import com.example.demo.security.model.UserRole;
+import com.example.demo.security.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

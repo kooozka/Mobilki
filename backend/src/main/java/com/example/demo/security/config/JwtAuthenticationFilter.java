@@ -1,5 +1,6 @@
-package com.example.demo.security;
+package com.example.demo.security.config;
 
+import com.example.demo.security.service.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

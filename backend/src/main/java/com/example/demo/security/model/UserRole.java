@@ -1,4 +1,4 @@
-package com.example.demo.model;
+package com.example.demo.security.model;
 
 public enum UserRole {
     CLIENT("Klient"),
