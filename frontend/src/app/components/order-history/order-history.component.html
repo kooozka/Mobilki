@@ -1,0 +1,64 @@
+<div class="history-container">
+  <div class="header">
+    <h1>Historia zleceń</h1>
+    <button (click)="goBack()" class="btn-back">Powrót do dashboardu</button>
+  </div>
+
+  <div class="filter-section">
+    <label>Filtruj według statusu:</label>
+    <select [(ngModel)]="statusFilter" (change)="applyFilter()">
+      <option value="ALL">Wszystkie</option>
+      <option value="PENDING">Oczekujące</option>
+      <option value="CONFIRMED">Potwierdzone</option>
+      <option value="ASSIGNED">Przypisane</option>
+      <option value="IN_PROGRESS">W realizacji</option>
+      <option value="COMPLETED">Zakończone</option>
+      <option value="CANCELLED">Anulowane</option>
+    </select>
+  </div>
+
+  <div class="orders-list" *ngIf="filteredOrders.length > 0">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Trasa</th>
+          <th>Rodzaj pojazdu</th>
+          <th>Waga (kg)</th>
+          <th>Status</th>
+          <th>Data utworzenia</th>
+          <th>Kierowca</th>
+          <th>Akcje</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let order of filteredOrders">
+          <td>#{{ order.id }}</td>
+          <td>
+            <div class="route">
+              <div>{{ order.pickupLocation }}</div>
+              <div class="arrow">→</div>
+              <div>{{ order.deliveryLocation }}</div>
+            </div>
+          </td>
+          <td>{{ order.vehicleType }}</td>
+          <td>{{ order.cargoWeight }}</td>
+          <td>
+            <span class="status-badge" [class]="getStatusClass(order.status)">
+              {{ getStatusDisplay(order.status) }}
+            </span>
+          </td>
+          <td>{{ order.createdAt | date:'short' }}</td>
+          <td>{{ order.driverEmail || 'Nie przypisano' }}</td>
+          <td>
+            <button (click)="viewDetails(order.id)" class="btn-details">Szczegóły</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="empty-state" *ngIf="filteredOrders.length === 0">
+    <p>Brak zleceń spełniających kryteria</p>
+  </div>
+</div>

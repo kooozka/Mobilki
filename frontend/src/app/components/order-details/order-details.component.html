@@ -1,0 +1,178 @@
+<div class="details-container" *ngIf="order">
+  <div class="header">
+    <h1>Szczegóły zlecenia #{{ order.id }}</h1>
+    <button (click)="goBack()" class="btn-back">Powrót</button>
+  </div>
+
+  <div class="alert alert-error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <div class="alert alert-success" *ngIf="successMessage">{{ successMessage }}</div>
+
+  <div class="order-card">
+    <div class="status-section">
+      <span class="status-badge" [class]="getStatusClass(order.status)">
+        {{ getStatusDisplay(order.status) }}
+      </span>
+      <div class="action-buttons">
+        <button *ngIf="canEditOrder()" (click)="openEditDialog()" class="btn-edit">
+          Modyfikuj zlecenie
+        </button>
+        <button *ngIf="canCancelOrder()" (click)="openCancelDialog()" class="btn-cancel">
+          Anuluj zlecenie
+        </button>
+      </div>
+    </div>
+
+    <div class="details-grid">
+      <div class="detail-section">
+        <h2>📍 Miejsce odbioru</h2>
+        <p><strong>Lokalizacja:</strong> {{ order.pickupLocation }}</p>
+        <p><strong>Adres:</strong> {{ order.pickupAddress }}</p>
+        <p><strong>Okno czasowe:</strong></p>
+        <p class="time-window">
+          {{ order.pickupTimeFrom | date:'short' }} - {{ order.pickupTimeTo | date:'short' }}
+        </p>
+      </div>
+
+      <div class="detail-section">
+        <h2>📍 Miejsce dostawy</h2>
+        <p><strong>Lokalizacja:</strong> {{ order.deliveryLocation }}</p>
+        <p><strong>Adres:</strong> {{ order.deliveryAddress }}</p>
+        <p><strong>Okno czasowe:</strong></p>
+        <p class="time-window">
+          {{ order.deliveryTimeFrom | date:'short' }} - {{ order.deliveryTimeTo | date:'short' }}
+        </p>
+      </div>
+
+      <div class="detail-section">
+        <h2>🚚 Informacje o transporcie</h2>
+        <p><strong>Rodzaj pojazdu:</strong> {{ getVehicleTypeDisplay(order.vehicleType) }}</p>
+        <p><strong>Waga ładunku:</strong> {{ order.cargoWeight }} kg</p>
+        <p><strong>Opis:</strong> {{ order.description || 'Brak opisu' }}</p>
+      </div>
+
+      <div class="detail-section">
+        <h2>👤 Dane kontaktowe</h2>
+        <p><strong>Klient:</strong> {{ order.clientEmail }}</p>
+        <p><strong>Kierowca:</strong> {{ order.driverEmail || 'Nie przypisano' }}</p>
+      </div>
+
+      <div class="detail-section">
+        <h2>📅 Daty</h2>
+        <p><strong>Data utworzenia:</strong> {{ order.createdAt | date:'medium' }}</p>
+        <p><strong>Ostatnia aktualizacja:</strong> {{ order.updatedAt | date:'medium' }}</p>
+      </div>
+
+      <div class="detail-section" *ngIf="order.cancellationReason">
+        <h2>❌ Anulowanie</h2>
+        <p><strong>Powód anulowania:</strong></p>
+        <p class="cancellation-reason">{{ order.cancellationReason }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" *ngIf="showCancelDialog">
+  <div class="modal-content">
+    <h2>Anulowanie zlecenia</h2>
+    <p>Czy na pewno chcesz anulować to zlecenie?</p>
+    
+    <div class="form-group">
+      <label>Powód anulowania:</label>
+      <textarea [(ngModel)]="cancellationReason" rows="4" placeholder="Podaj powód anulowania..."></textarea>
+    </div>
+
+    <div class="alert alert-error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+    <div class="modal-actions">
+      <button (click)="closeCancelDialog()" class="btn-secondary">Zamknij</button>
+      <button (click)="confirmCancel()" class="btn-danger">Potwierdź anulowanie</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" *ngIf="showEditDialog">
+  <div class="modal-content modal-large">
+    <h2>Modyfikacja zlecenia #{{ order?.id }}</h2>
+    
+    <div class="form-sections">
+      <div class="form-section">
+        <h3>Miejsce odbioru</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Lokalizacja (miasto)</label>
+            <input type="text" [(ngModel)]="editOrderData.pickupLocation" />
+          </div>
+          <div class="form-group">
+            <label>Adres</label>
+            <input type="text" [(ngModel)]="editOrderData.pickupAddress" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Okno czasowe - od</label>
+            <input type="datetime-local" [(ngModel)]="editOrderData.pickupTimeFrom" />
+          </div>
+          <div class="form-group">
+            <label>Okno czasowe - do</label>
+            <input type="datetime-local" [(ngModel)]="editOrderData.pickupTimeTo" />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>Miejsce dostawy</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Lokalizacja (miasto)</label>
+            <input type="text" [(ngModel)]="editOrderData.deliveryLocation" />
+          </div>
+          <div class="form-group">
+            <label>Adres</label>
+            <input type="text" [(ngModel)]="editOrderData.deliveryAddress" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Okno czasowe - od</label>
+            <input type="datetime-local" [(ngModel)]="editOrderData.deliveryTimeFrom" />
+          </div>
+          <div class="form-group">
+            <label>Okno czasowe - do</label>
+            <input type="datetime-local" [(ngModel)]="editOrderData.deliveryTimeTo" />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>Szczegóły ładunku</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Rodzaj pojazdu</label>
+            <select [(ngModel)]="editOrderData.vehicleType">
+              <option *ngFor="let type of vehicleTypes" [value]="type">{{ type }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Waga ładunku (kg)</label>
+            <input type="number" [(ngModel)]="editOrderData.cargoWeight" min="1" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Opis (opcjonalny)</label>
+          <textarea [(ngModel)]="editOrderData.description" rows="3"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert alert-error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+    <div class="modal-actions">
+      <button (click)="closeEditDialog()" class="btn-secondary">Anuluj</button>
+      <button (click)="confirmEdit()" class="btn-primary">Zapisz zmiany</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading" *ngIf="!order && !errorMessage">
+  <p>Ładowanie szczegółów zlecenia...</p>
+</div>

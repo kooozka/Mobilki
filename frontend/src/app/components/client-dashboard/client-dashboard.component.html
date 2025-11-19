@@ -1,0 +1,89 @@
+<div class="dashboard-container">
+  <div class="header">
+    <h1>Panel Klienta</h1>
+    <div class="user-info">
+      <span>{{ userEmail }}</span>
+      <button (click)="logout()" class="btn-logout">Wyloguj</button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">📊</div>
+      <h3>Aktywne zlecenia</h3>
+      <p class="stat-number">{{ stats.pending + stats.confirmed + stats.inProgress }}</p>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🕒</div>
+      <h3>W realizacji</h3>
+      <p class="stat-number">{{ stats.inProgress }}</p>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">✅</div>
+      <h3>Zrealizowane</h3>
+      <p class="stat-number">{{ stats.completed }}</p>
+    </div>
+  </div>
+
+  <div class="section-header">
+    <h2>Moje zlecenia</h2>
+    <button routerLink="/client/create-order" class="btn-new-order">
+      <span class="plus-icon">+</span> Nowe zamówienie
+    </button>
+  </div>
+
+  <div class="orders-list" *ngIf="orders.length > 0">
+    <div class="order-card" *ngFor="let order of orders">
+      <div class="order-header">
+        <span class="order-id">#{{ order.id }}</span>
+        <span class="status-badge" [class]="getStatusClass(order.status)">{{ getStatusDisplay(order.status) }}</span>
+      </div>
+      
+      <div class="order-route">
+        <div class="location-item">
+          <span class="location-icon">📍</span>
+          <div class="location-details">
+            <div class="location-name">{{ order.pickupLocation }}</div>
+            <div class="location-address">{{ order.pickupAddress }}</div>
+          </div>
+        </div>
+        
+        <div class="route-arrow">→</div>
+        
+        <div class="location-item">
+          <span class="location-icon">📍</span>
+          <div class="location-details">
+            <div class="location-name">{{ order.deliveryLocation }}</div>
+            <div class="location-address">{{ order.deliveryAddress }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="order-info">
+        <div class="info-item">
+          <span class="info-label">Towar / Opis:</span>
+          <span class="info-value">{{ order.vehicleType }} - {{ order.cargoWeight }} kg</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Data dostawy:</span>
+          <span class="info-value">{{ order.deliveryTimeFrom | date:'dd.MM.yyyy' }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Cena:</span>
+          <span class="info-value">{{ calculatePrice(order) }} zł</span>
+        </div>
+      </div>
+
+      <div class="order-actions">
+        <button class="btn-action" [routerLink]="['/client/order-details', order.id]">
+          Szczegóły
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty-state" *ngIf="orders.length === 0">
+    <p>Nie masz jeszcze żadnych zleceń</p>
+    <button routerLink="/client/create-order" class="btn-primary">Utwórz pierwsze zlecenie</button>
+  </div>
+</div>

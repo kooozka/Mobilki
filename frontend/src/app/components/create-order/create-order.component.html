@@ -1,0 +1,84 @@
+<div class="create-order-container">
+  <h1>Utwórz nowe zlecenie transportowe</h1>
+
+  <div class="alert alert-error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <div class="alert alert-success" *ngIf="successMessage">{{ successMessage }}</div>
+
+  <form (ngSubmit)="onSubmit()" class="order-form">
+    <div class="form-section">
+      <h2>Miejsce odbioru</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Lokalizacja (miasto)</label>
+          <input type="text" [(ngModel)]="orderData.pickupLocation" name="pickupLocation" required>
+        </div>
+        <div class="form-group full-width">
+          <label>Adres</label>
+          <input type="text" [(ngModel)]="orderData.pickupAddress" name="pickupAddress" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Okno czasowe - od</label>
+          <input type="datetime-local" [(ngModel)]="orderData.pickupTimeFrom" name="pickupTimeFrom" required>
+        </div>
+        <div class="form-group">
+          <label>Okno czasowe - do</label>
+          <input type="datetime-local" [(ngModel)]="orderData.pickupTimeTo" name="pickupTimeTo" required>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h2>Miejsce dostawy</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Lokalizacja (miasto)</label>
+          <input type="text" [(ngModel)]="orderData.deliveryLocation" name="deliveryLocation" required>
+        </div>
+        <div class="form-group full-width">
+          <label>Adres</label>
+          <input type="text" [(ngModel)]="orderData.deliveryAddress" name="deliveryAddress" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Okno czasowe - od</label>
+          <input type="datetime-local" [(ngModel)]="orderData.deliveryTimeFrom" name="deliveryTimeFrom" required>
+        </div>
+        <div class="form-group">
+          <label>Okno czasowe - do</label>
+          <input type="datetime-local" [(ngModel)]="orderData.deliveryTimeTo" name="deliveryTimeTo" required>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h2>Szczegóły ładunku</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Rodzaj pojazdu</label>
+          <select [(ngModel)]="orderData.vehicleType" name="vehicleType" required>
+            <option value="">-- Wybierz pojazd --</option>
+            <option *ngFor="let type of vehicleTypes" [value]="type">
+              {{ getVehicleTypeDisplay(type) }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Waga ładunku (kg)</label>
+          <input type="number" [(ngModel)]="orderData.cargoWeight" name="cargoWeight" min="1" required>
+        </div>
+      </div>
+      <div class="form-group full-width">
+        <label>Opis (opcjonalny)</label>
+        <textarea [(ngModel)]="orderData.description" name="description" rows="4"></textarea>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" (click)="cancel()" class="btn-secondary">Anuluj</button>
+      <button type="submit" class="btn-primary">Utwórz zlecenie</button>
+    </div>
+  </form>
+</div>
