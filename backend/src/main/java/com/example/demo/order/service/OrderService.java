@@ -77,6 +77,8 @@ public class OrderService {
 
         Order order = Order.builder()
                 .client(client)
+                .title(request.getTitle())
+                .price(calculatePrice(request))
                 .pickupLocation(request.getPickupLocation())
                 .pickupAddress(request.getPickupAddress())
                 .pickupTimeFrom(request.getPickupTimeFrom())
@@ -220,6 +222,7 @@ public class OrderService {
     private OrderResponse mapToResponse(Order order) {
         return OrderResponse.builder()
                 .id(order.getId())
+                .title(order.getTitle())
                 .clientEmail(order.getClient().getEmail())
                 .driverEmail(order.getDriver() != null ? order.getDriver().getEmail() : null)
                 .pickupLocation(order.getPickupLocation())
@@ -234,11 +237,34 @@ public class OrderService {
                 .cargoWeight(order.getCargoWeight())
                 .description(order.getDescription())
                 .status(order.getStatus())
+                .price(order.getPrice())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .confirmedAt(order.getConfirmedAt())
                 .cancelledAt(order.getCancelledAt())
                 .cancellationReason(order.getCancellationReason())
                 .build();
+    }
+
+    private double calculatePrice(CreateOrderRequest createOrderRequest) {
+        // na razie uwzględnij tylko masą ładunku i typ pojazdu
+        double baseRate;
+        switch (createOrderRequest.getVehicleType()) {
+            case "SMALL_VAN":
+                baseRate = 1.0;
+                break;
+            case "MEDIUM_TRUCK":
+                baseRate = 1.5;
+                break;
+            case "LARGE_TRUCK":
+                baseRate = 2.0;
+                break;
+            case "SEMI_TRUCK":
+                baseRate = 3.0;
+                break;
+            default:
+                throw new RuntimeException("Nieprawidłowy typ pojazdu: " + createOrderRequest.getVehicleType());
+        }
+        return baseRate * createOrderRequest.getCargoWeight();
     }
 }

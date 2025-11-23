@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class OrderResponse {
     private Long id;
+    private String title;
     private String clientEmail;
     private String driverEmail;
     
@@ -31,6 +32,8 @@ public class OrderResponse {
     private VehicleType vehicleType;
     private Double cargoWeight;
     private String description;
+
+    private double price;
     
     private OrderStatus status;
     private LocalDateTime createdAt;

@@ -27,7 +27,7 @@ export class OrderHistoryComponent implements OnInit {
   loadOrders(): void {
     this.orderService.getMyOrders().subscribe({
       next: (orders) => {
-        this.orders = orders.sort((a, b) => 
+        this.orders = orders.sort((a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
         this.applyFilter();

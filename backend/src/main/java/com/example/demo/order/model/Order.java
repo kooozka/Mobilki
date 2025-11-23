@@ -28,6 +28,12 @@ public class Order {
     @ManyToOne
     @JoinColumn(name = "driver_id")
     private User driver;
+
+    @Column(nullable = false)
+    private String title = "";
+
+    @Column(nullable = false)
+    private double price = 0.0;
     
     // Punkt odbioru
     @Column(nullable = false)

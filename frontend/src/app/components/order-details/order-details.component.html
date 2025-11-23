@@ -1,7 +1,6 @@
 <div class="details-container" *ngIf="order">
   <div class="header">
-    <h1>Szczegóły zlecenia #{{ order.id }}</h1>
-    <button (click)="goBack()" class="btn-back">Powrót</button>
+    <h1>Szczegóły zlecenia #{{ order.id }}: {{ order.title }}</h1>
   </div>
 
   <div class="alert alert-error" *ngIf="errorMessage">{{ errorMessage }}</div>
@@ -51,6 +50,25 @@
       </div>
 
       <div class="detail-section">
+        <h2>💰 Cena i status płatności</h2>
+        <p><strong>Cena:</strong>
+          <span class="price-value">
+            {{ order.price !== undefined ? (order.price | number:'1.2-2') + ' zł' : 'Brak' }}
+          </span>
+        </p>
+        <p><strong>Status płatności:</strong>
+          <span
+            class="payment-badge"
+            [class.paid]="getPaymentStatusClass(order.status) === 'paid'"
+            [class.awaiting]="getPaymentStatusClass(order.status) === 'awaiting'"
+            [class.refunded]="getPaymentStatusClass(order.status) === 'refunded'"
+            [class.unpaid]="getPaymentStatusClass(order.status) === 'unpaid'">
+            {{ getPaymentStatusDisplay(order.status) }}
+          </span>
+        </p>
+      </div>
+
+      <div class="detail-section">
         <h2>👤 Dane kontaktowe</h2>
         <p><strong>Klient:</strong> {{ order.clientEmail }}</p>
         <p><strong>Kierowca:</strong> {{ order.driverEmail || 'Nie przypisano' }}</p>
@@ -75,7 +93,7 @@
   <div class="modal-content">
     <h2>Anulowanie zlecenia</h2>
     <p>Czy na pewno chcesz anulować to zlecenie?</p>
-    
+
     <div class="form-group">
       <label>Powód anulowania:</label>
       <textarea [(ngModel)]="cancellationReason" rows="4" placeholder="Podaj powód anulowania..."></textarea>
@@ -93,7 +111,15 @@
 <div class="modal" *ngIf="showEditDialog">
   <div class="modal-content modal-large">
     <h2>Modyfikacja zlecenia #{{ order?.id }}</h2>
-    
+
+    <div class="form-section">
+      <h2>Podstawowe informacje</h2>
+      <div class="form-group full-width">
+        <label>Nazwa / Tytuł zlecenia</label>
+        <input type="text" [(ngModel)]="editOrderData.title">
+      </div>
+    </div>
+
     <div class="form-sections">
       <div class="form-section">
         <h3>Miejsce odbioru</h3>

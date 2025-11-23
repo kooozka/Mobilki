@@ -27,18 +27,23 @@
 
   <div class="section-header">
     <h2>Moje zlecenia</h2>
-    <button routerLink="/client/create-order" class="btn-new-order">
-      <span class="plus-icon">+</span> Nowe zamówienie
-    </button>
+    <div class ="action-buttons">
+      <button routerLink="/client/order-history" class="btn-order-history">
+        Historia zleceń
+      </button>
+      <button routerLink="/client/create-order" class="btn-new-order">
+        <span class="plus-icon">+</span> Nowe zlecenie
+      </button>
+    </div>
   </div>
 
   <div class="orders-list" *ngIf="orders.length > 0">
     <div class="order-card" *ngFor="let order of orders">
       <div class="order-header">
-        <span class="order-id">#{{ order.id }}</span>
+        <span class="order-id">#{{ order.id }}: {{order.title}}</span>
         <span class="status-badge" [class]="getStatusClass(order.status)">{{ getStatusDisplay(order.status) }}</span>
       </div>
-      
+
       <div class="order-route">
         <div class="location-item">
           <span class="location-icon">📍</span>
@@ -47,9 +52,9 @@
             <div class="location-address">{{ order.pickupAddress }}</div>
           </div>
         </div>
-        
+
         <div class="route-arrow">→</div>
-        
+
         <div class="location-item">
           <span class="location-icon">📍</span>
           <div class="location-details">
@@ -61,8 +66,8 @@
 
       <div class="order-info">
         <div class="info-item">
-          <span class="info-label">Towar / Opis:</span>
-          <span class="info-value">{{ order.vehicleType }} - {{ order.cargoWeight }} kg</span>
+          <span class="info-label">Rodzaj pojazdu / masa towaru:</span>
+          <span class="info-value">{{ getVehicleTypeDisplay(order.vehicleType) }} &middot; {{ order.cargoWeight }} kg</span>
         </div>
         <div class="info-item">
           <span class="info-label">Data dostawy:</span>
@@ -70,7 +75,7 @@
         </div>
         <div class="info-item">
           <span class="info-label">Cena:</span>
-          <span class="info-value">{{ calculatePrice(order) }} zł</span>
+          <span class="info-value">{{ order.price }} zł</span>
         </div>
       </div>
 

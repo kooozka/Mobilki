@@ -47,8 +47,8 @@ export class OrderDetailsComponent implements OnInit {
 
   canCancelOrder(): boolean {
     if (!this.order) return false;
-    return this.order.status !== 'COMPLETED' && 
-           this.order.status !== 'CANCELLED' && 
+    return this.order.status !== 'COMPLETED' &&
+           this.order.status !== 'CANCELLED' &&
            this.order.status !== 'IN_PROGRESS';
   }
 
@@ -73,6 +73,7 @@ export class OrderDetailsComponent implements OnInit {
     this.showEditDialog = true;
     this.errorMessage = '';
     this.editOrderData = {
+      title: this.order.title, // NEW: include title for editing
       pickupLocation: this.order.pickupLocation,
       pickupAddress: this.order.pickupAddress,
       pickupTimeFrom: this.formatDateForInput(this.order.pickupTimeFrom),
@@ -116,8 +117,9 @@ export class OrderDetailsComponent implements OnInit {
 
   confirmEdit(): void {
     if (!this.order) return;
-    
+
     const request = {
+      title: this.editOrderData.title,
       pickupLocation: this.editOrderData.pickupLocation,
       pickupAddress: this.editOrderData.pickupAddress,
       pickupTimeFrom: this.editOrderData.pickupTimeFrom,
@@ -155,7 +157,7 @@ export class OrderDetailsComponent implements OnInit {
 
   confirmCancel(): void {
     if (!this.order) return;
-    
+
     if (!this.cancellationReason.trim()) {
       this.errorMessage = 'Proszę podać powód anulowania';
       return;
@@ -196,14 +198,38 @@ export class OrderDetailsComponent implements OnInit {
     return status.toLowerCase().replace('_', '-');
   }
 
-  getVehicleTypeDisplay(type: string): string {
-    const map: {[key: string]: string} = {
-      'SMALL_VAN': 'Mały van',
-      'MEDIUM_TRUCK': 'Średnia ciężarówka',
-      'LARGE_TRUCK': 'Duża ciężarówka',
-      'SEMI_TRUCK': 'Naczepa'
+  // NEW: determine payment label based on order status
+  getPaymentStatusDisplay(status: string): string {
+    const map: { [key: string]: string } = {
+      'PENDING': 'Oczekuje płatności',
+      'CONFIRMED': 'Opłacone',
+      'ASSIGNED': 'Opłacone',
+      'IN_PROGRESS': 'Opłacone',
+      'COMPLETED': 'Opłacone',
+      'CANCELLED': 'Zwrócone / Anulowane'
     };
-    return map[type] || type;
+    return map[status] || 'Nieznany';
+  }
+
+  // NEW: small helper for CSS class selection
+  getPaymentStatusClass(status: string): string {
+    switch (status) {
+      case 'COMPLETED':
+      case 'CONFIRMED':
+      case 'ASSIGNED':
+      case 'IN_PROGRESS':
+        return 'paid';
+      case 'CANCELLED':
+        return 'refunded';
+      case 'PENDING':
+        return 'unpaid';
+      default:
+        return 'unpaid';
+    }
+  }
+
+  getVehicleTypeDisplay(type: string): string {
+    return this.orderService.getVehicleTypeDisplay(type);
   }
 
   goBack(): void {

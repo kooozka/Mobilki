@@ -13,6 +13,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateOrderRequest {
+
+    @NotBlank(message = "Title is required")
+    private String title;
     
     @NotBlank(message = "Pickup location is required")
     private String pickupLocation;

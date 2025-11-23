@@ -79,6 +79,10 @@ export class ClientDashboardComponent implements OnInit {
     return map[status] || status;
   }
 
+  getVehicleTypeDisplay(type: string): string {
+    return this.orderService.getVehicleTypeDisplay(type);
+  }
+
   logout(): void {
     this.authService.logout();
     this.router.navigate(['/login']);

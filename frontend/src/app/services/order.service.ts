@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 export interface CreateOrderRequest {
+  title: string;
   pickupLocation: string;
   pickupAddress: string;
   pickupTimeFrom: string;
@@ -18,6 +19,7 @@ export interface CreateOrderRequest {
 
 export interface OrderResponse {
   id: number;
+  title: string;
   pickupLocation: string;
   pickupAddress: string;
   pickupTimeFrom: string;
@@ -30,6 +32,7 @@ export interface OrderResponse {
   cargoWeight: number;
   description: string;
   status: string;
+  price: number;
   clientEmail: string;
   driverEmail?: string;
   createdAt: string;
@@ -77,5 +80,15 @@ export class OrderService {
 
   getVehicleTypes(): Observable<string[]> {
     return this.http.get<string[]>(`${this.apiUrl}/vehicle-types`);
+  }
+
+  getVehicleTypeDisplay(type: string): string {
+    const map: {[key: string]: string} = {
+      'SMALL_VAN': 'Mały van (do 1000 kg)',
+      'MEDIUM_TRUCK': 'Średnia ciężarówka (do 3500 kg)',
+      'LARGE_TRUCK': 'Duża ciężarówka (do 10000 kg)',
+      'SEMI_TRUCK': 'Naczepa (do 24000 kg)'
+    };
+    return map[type] || type;
   }
 }

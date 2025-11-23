@@ -12,8 +12,9 @@ import { OrderService, CreateOrderRequest } from '../../services/order.service';
 })
 export class CreateOrderComponent implements OnInit {
   vehicleTypes: string[] = [];
-  
+
   orderData: CreateOrderRequest = {
+    title: '',
     pickupLocation: '',
     pickupAddress: '',
     pickupTimeFrom: '',
@@ -31,7 +32,7 @@ export class CreateOrderComponent implements OnInit {
   successMessage = '';
 
   constructor(
-    private orderService: OrderService,
+    protected orderService: OrderService,
     private router: Router
   ) {}
 
@@ -71,7 +72,7 @@ export class CreateOrderComponent implements OnInit {
         console.error('Pełny błąd:', error);
         console.error('error.error:', error.error);
         console.error('error.status:', error.status);
-        
+
         if (error.error?.message) {
           this.errorMessage = error.error.message;
         } else if (error.error && typeof error.error === 'string') {
@@ -90,6 +91,12 @@ export class CreateOrderComponent implements OnInit {
   }
 
   validateForm(): boolean {
+    // New validation: require title
+    if (!this.orderData.title || !this.orderData.title.trim()) {
+      this.errorMessage = 'Proszę podać nazwę zlecenia';
+      return false;
+    }
+
     if (!this.orderData.pickupLocation || !this.orderData.deliveryLocation) {
       this.errorMessage = 'Proszę podać lokalizacje odbioru i dostawy';
       return false;
@@ -100,7 +107,7 @@ export class CreateOrderComponent implements OnInit {
       return false;
     }
 
-    if (!this.orderData.pickupTimeFrom || !this.orderData.pickupTimeTo || 
+    if (!this.orderData.pickupTimeFrom || !this.orderData.pickupTimeTo ||
         !this.orderData.deliveryTimeFrom || !this.orderData.deliveryTimeTo) {
       this.errorMessage = 'Proszę podać wszystkie przedziały czasowe';
       return false;
@@ -110,7 +117,7 @@ export class CreateOrderComponent implements OnInit {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
-    
+
     const pickupDate = new Date(this.orderData.pickupTimeFrom);
     if (pickupDate < tomorrow) {
       this.errorMessage = 'Data odbioru nie może być wcześniejsza niż jutro';
@@ -131,13 +138,7 @@ export class CreateOrderComponent implements OnInit {
   }
 
   getVehicleTypeDisplay(type: string): string {
-    const map: {[key: string]: string} = {
-      'SMALL_VAN': 'Mały van (do 1000 kg)',
-      'MEDIUM_TRUCK': 'Średnia ciężarówka (do 3500 kg)',
-      'LARGE_TRUCK': 'Duża ciężarówka (do 10000 kg)',
-      'SEMI_TRUCK': 'Naczepa (do 24000 kg)'
-    };
-    return map[type] || type;
+    return this.orderService.getVehicleTypeDisplay(type);
   }
 
   cancel(): void {
