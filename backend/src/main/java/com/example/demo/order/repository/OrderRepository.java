@@ -13,6 +13,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findByClientOrderByCreatedAtDesc(User client);
     List<Order> findByDriverOrderByCreatedAtDesc(User driver);
     List<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status);
+    List<Order> findByStatus(OrderStatus status);
     List<Order> findByClientAndStatusOrderByCreatedAtDesc(User client, OrderStatus status);
     long countByStatus(OrderStatus status);
 }

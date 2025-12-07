@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -10,20 +10,15 @@ import { OrderService, CreateOrderRequest } from '../../services/order.service';
   templateUrl: './create-order.component.html',
   styleUrl: './create-order.component.css'
 })
-export class CreateOrderComponent implements OnInit {
-  vehicleTypes: string[] = [];
-
+export class CreateOrderComponent {
   orderData: CreateOrderRequest = {
     title: '',
     pickupLocation: '',
     pickupAddress: '',
-    pickupTimeFrom: '',
-    pickupTimeTo: '',
+    pickupDate: '',
     deliveryLocation: '',
     deliveryAddress: '',
-    deliveryTimeFrom: '',
-    deliveryTimeTo: '',
-    vehicleType: '',
+    deliveryDeadline: '',
     cargoWeight: 0,
     description: ''
   };
@@ -32,24 +27,9 @@ export class CreateOrderComponent implements OnInit {
   successMessage = '';
 
   constructor(
-    protected orderService: OrderService,
+    private orderService: OrderService,
     private router: Router
   ) {}
-
-  ngOnInit(): void {
-    this.loadVehicleTypes();
-  }
-
-  loadVehicleTypes(): void {
-    this.orderService.getVehicleTypes().subscribe({
-      next: (types) => {
-        this.vehicleTypes = types;
-      },
-      error: (error) => {
-        console.error('Error loading vehicle types:', error);
-      }
-    });
-  }
 
   onSubmit(): void {
     this.errorMessage = '';
@@ -107,9 +87,8 @@ export class CreateOrderComponent implements OnInit {
       return false;
     }
 
-    if (!this.orderData.pickupTimeFrom || !this.orderData.pickupTimeTo ||
-        !this.orderData.deliveryTimeFrom || !this.orderData.deliveryTimeTo) {
-      this.errorMessage = 'Proszę podać wszystkie przedziały czasowe';
+    if (!this.orderData.pickupDate || !this.orderData.deliveryDeadline) {
+      this.errorMessage = 'Proszę podać datę odbioru i termin dostawy';
       return false;
     }
 
@@ -118,14 +97,15 @@ export class CreateOrderComponent implements OnInit {
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
 
-    const pickupDate = new Date(this.orderData.pickupTimeFrom);
+    const pickupDate = new Date(this.orderData.pickupDate);
     if (pickupDate < tomorrow) {
       this.errorMessage = 'Data odbioru nie może być wcześniejsza niż jutro';
       return false;
     }
 
-    if (!this.orderData.vehicleType) {
-      this.errorMessage = 'Proszę wybrać rodzaj pojazdu';
+    const deliveryDate = new Date(this.orderData.deliveryDeadline);
+    if (pickupDate > deliveryDate) {
+      this.errorMessage = 'Data odbioru nie może być późniejsza niż termin dostawy';
       return false;
     }
 
@@ -134,11 +114,12 @@ export class CreateOrderComponent implements OnInit {
       return false;
     }
 
-    return true;
-  }
+    if (this.orderData.cargoWeight > 25000) {
+      this.errorMessage = 'Maksymalna waga ładunku to 25000 kg';
+      return false;
+    }
 
-  getVehicleTypeDisplay(type: string): string {
-    return this.orderService.getVehicleTypeDisplay(type);
+    return true;
   }
 
   cancel(): void {

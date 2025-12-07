@@ -6,10 +6,10 @@
 
   <form (ngSubmit)="onSubmit()" class="order-form">
     <div class="form-section">
-      <h2>Podstawowe informacje</h2>
+      <h2>Nazwa zlecenia</h2>
       <div class="form-group full-width">
-        <label>Nazwa / Tytuł zlecenia</label>
-        <input type="text" [(ngModel)]="orderData.title" name="orderTitle" required>
+        <label>Nazwa / tytuł zlecenia</label>
+        <input type="text" [(ngModel)]="orderData.title" name="title" required placeholder="np. Transport mebli do Krakowa">
       </div>
     </div>
 
@@ -27,12 +27,8 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Okno czasowe - od</label>
-          <input type="datetime-local" [(ngModel)]="orderData.pickupTimeFrom" name="pickupTimeFrom" required>
-        </div>
-        <div class="form-group">
-          <label>Okno czasowe - do</label>
-          <input type="datetime-local" [(ngModel)]="orderData.pickupTimeTo" name="pickupTimeTo" required>
+          <label>Data odbioru</label>
+          <input type="date" [(ngModel)]="orderData.pickupDate" name="pickupDate" required>
         </div>
       </div>
     </div>
@@ -51,12 +47,8 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Okno czasowe - od</label>
-          <input type="datetime-local" [(ngModel)]="orderData.deliveryTimeFrom" name="deliveryTimeFrom" required>
-        </div>
-        <div class="form-group">
-          <label>Okno czasowe - do</label>
-          <input type="datetime-local" [(ngModel)]="orderData.deliveryTimeTo" name="deliveryTimeTo" required>
+          <label>Termin dostawy (deadline)</label>
+          <input type="date" [(ngModel)]="orderData.deliveryDeadline" name="deliveryDeadline" required>
         </div>
       </div>
     </div>
@@ -65,17 +57,9 @@
       <h2>Szczegóły ładunku</h2>
       <div class="form-row">
         <div class="form-group">
-          <label>Rodzaj pojazdu</label>
-          <select [(ngModel)]="orderData.vehicleType" name="vehicleType" required>
-            <option value="">-- Wybierz pojazd --</option>
-            <option *ngFor="let type of vehicleTypes" [value]="type">
-              {{ getVehicleTypeDisplay(type) }}
-            </option>
-          </select>
-        </div>
-        <div class="form-group">
           <label>Waga ładunku (kg)</label>
-          <input type="number" [(ngModel)]="orderData.cargoWeight" name="cargoWeight" min="1" required>
+          <input type="number" [(ngModel)]="orderData.cargoWeight" name="cargoWeight" min="1" max="25000" required>
+          <small class="hint">Maksymalna waga: 25000 kg.</small>
         </div>
       </div>
       <div class="form-group full-width">

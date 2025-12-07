@@ -6,13 +6,11 @@ export interface CreateOrderRequest {
   title: string;
   pickupLocation: string;
   pickupAddress: string;
-  pickupTimeFrom: string;
-  pickupTimeTo: string;
+  pickupDate: string;
   deliveryLocation: string;
   deliveryAddress: string;
-  deliveryTimeFrom: string;
-  deliveryTimeTo: string;
-  vehicleType: string;
+  deliveryDeadline: string;
+  vehicleType?: string;
   cargoWeight: number;
   description?: string;
 }
@@ -22,17 +20,14 @@ export interface OrderResponse {
   title: string;
   pickupLocation: string;
   pickupAddress: string;
-  pickupTimeFrom: string;
-  pickupTimeTo: string;
+  pickupDate: string;
   deliveryLocation: string;
   deliveryAddress: string;
-  deliveryTimeFrom: string;
-  deliveryTimeTo: string;
+  deliveryDeadline: string;
   vehicleType: string;
   cargoWeight: number;
   description: string;
   status: string;
-  price: number;
   clientEmail: string;
   driverEmail?: string;
   createdAt: string;
@@ -83,11 +78,11 @@ export class OrderService {
   }
 
   getVehicleTypeDisplay(type: string): string {
-    const map: {[key: string]: string} = {
+    const map: { [key: string]: string } = {
       'SMALL_VAN': 'Mały van (do 1000 kg)',
-      'MEDIUM_TRUCK': 'Średnia ciężarówka (do 3500 kg)',
-      'LARGE_TRUCK': 'Duża ciężarówka (do 10000 kg)',
-      'SEMI_TRUCK': 'Naczepa (do 24000 kg)'
+      'MEDIUM_TRUCK': 'Średnia ciężarówka (do 5000 kg)',
+      'LARGE_TRUCK': 'Duża ciężarówka (do 15000 kg)',
+      'SEMI_TRUCK': 'Naczepa (do 25000 kg)'
     };
     return map[type] || type;
   }

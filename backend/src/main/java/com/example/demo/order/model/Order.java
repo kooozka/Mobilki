@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -43,10 +44,7 @@ public class Order {
     private String pickupAddress;
     
     @Column(nullable = false)
-    private LocalDateTime pickupTimeFrom;
-    
-    @Column(nullable = false)
-    private LocalDateTime pickupTimeTo;
+    private LocalDate pickupDate;
     
     // Punkt dostawy
     @Column(nullable = false)
@@ -56,10 +54,7 @@ public class Order {
     private String deliveryAddress;
     
     @Column(nullable = false)
-    private LocalDateTime deliveryTimeFrom;
-    
-    @Column(nullable = false)
-    private LocalDateTime deliveryTimeTo;
+    private LocalDate deliveryDeadline;
     
     // Szczegóły ładunku
     @Enumerated(EnumType.STRING)

@@ -1,6 +1,7 @@
 <div class="details-container" *ngIf="order">
   <div class="header">
-    <h1>Szczegóły zlecenia #{{ order.id }}: {{ order.title }}</h1>
+    <h1>{{ order.title || 'Zlecenie #' + order.id }}</h1>
+    <button (click)="goBack()" class="btn-back">Powrót</button>
   </div>
 
   <div class="alert alert-error" *ngIf="errorMessage">{{ errorMessage }}</div>
@@ -26,20 +27,16 @@
         <h2>📍 Miejsce odbioru</h2>
         <p><strong>Lokalizacja:</strong> {{ order.pickupLocation }}</p>
         <p><strong>Adres:</strong> {{ order.pickupAddress }}</p>
-        <p><strong>Okno czasowe:</strong></p>
-        <p class="time-window">
-          {{ order.pickupTimeFrom | date:'short' }} - {{ order.pickupTimeTo | date:'short' }}
-        </p>
+        <p><strong>Data odbioru:</strong></p>
+        <p class="time-window">{{ order.pickupDate | date:'dd.MM.yyyy' }}</p>
       </div>
 
       <div class="detail-section">
         <h2>📍 Miejsce dostawy</h2>
         <p><strong>Lokalizacja:</strong> {{ order.deliveryLocation }}</p>
         <p><strong>Adres:</strong> {{ order.deliveryAddress }}</p>
-        <p><strong>Okno czasowe:</strong></p>
-        <p class="time-window">
-          {{ order.deliveryTimeFrom | date:'short' }} - {{ order.deliveryTimeTo | date:'short' }}
-        </p>
+        <p><strong>Termin dostawy:</strong></p>
+        <p class="time-window">{{ order.deliveryDeadline | date:'dd.MM.yyyy' }}</p>
       </div>
 
       <div class="detail-section">
@@ -47,25 +44,6 @@
         <p><strong>Rodzaj pojazdu:</strong> {{ getVehicleTypeDisplay(order.vehicleType) }}</p>
         <p><strong>Waga ładunku:</strong> {{ order.cargoWeight }} kg</p>
         <p><strong>Opis:</strong> {{ order.description || 'Brak opisu' }}</p>
-      </div>
-
-      <div class="detail-section">
-        <h2>💰 Cena i status płatności</h2>
-        <p><strong>Cena:</strong>
-          <span class="price-value">
-            {{ order.price !== undefined ? (order.price | number:'1.2-2') + ' zł' : 'Brak' }}
-          </span>
-        </p>
-        <p><strong>Status płatności:</strong>
-          <span
-            class="payment-badge"
-            [class.paid]="getPaymentStatusClass(order.status) === 'paid'"
-            [class.awaiting]="getPaymentStatusClass(order.status) === 'awaiting'"
-            [class.refunded]="getPaymentStatusClass(order.status) === 'refunded'"
-            [class.unpaid]="getPaymentStatusClass(order.status) === 'unpaid'">
-            {{ getPaymentStatusDisplay(order.status) }}
-          </span>
-        </p>
       </div>
 
       <div class="detail-section">
@@ -93,7 +71,7 @@
   <div class="modal-content">
     <h2>Anulowanie zlecenia</h2>
     <p>Czy na pewno chcesz anulować to zlecenie?</p>
-
+    
     <div class="form-group">
       <label>Powód anulowania:</label>
       <textarea [(ngModel)]="cancellationReason" rows="4" placeholder="Podaj powód anulowania..."></textarea>
@@ -111,16 +89,16 @@
 <div class="modal" *ngIf="showEditDialog">
   <div class="modal-content modal-large">
     <h2>Modyfikacja zlecenia #{{ order?.id }}</h2>
-
-    <div class="form-section">
-      <h2>Podstawowe informacje</h2>
-      <div class="form-group full-width">
-        <label>Nazwa / Tytuł zlecenia</label>
-        <input type="text" [(ngModel)]="editOrderData.title">
-      </div>
-    </div>
-
+    
     <div class="form-sections">
+      <div class="form-section">
+        <h3>Nazwa zlecenia</h3>
+        <div class="form-group">
+          <label>Nazwa / tytuł zlecenia</label>
+          <input type="text" [(ngModel)]="editOrderData.title" />
+        </div>
+      </div>
+
       <div class="form-section">
         <h3>Miejsce odbioru</h3>
         <div class="form-row">
@@ -135,12 +113,8 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Okno czasowe - od</label>
-            <input type="datetime-local" [(ngModel)]="editOrderData.pickupTimeFrom" />
-          </div>
-          <div class="form-group">
-            <label>Okno czasowe - do</label>
-            <input type="datetime-local" [(ngModel)]="editOrderData.pickupTimeTo" />
+            <label>Data odbioru</label>
+            <input type="date" [(ngModel)]="editOrderData.pickupDate" />
           </div>
         </div>
       </div>
@@ -159,12 +133,8 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Okno czasowe - od</label>
-            <input type="datetime-local" [(ngModel)]="editOrderData.deliveryTimeFrom" />
-          </div>
-          <div class="form-group">
-            <label>Okno czasowe - do</label>
-            <input type="datetime-local" [(ngModel)]="editOrderData.deliveryTimeTo" />
+            <label>Termin dostawy (deadline)</label>
+            <input type="date" [(ngModel)]="editOrderData.deliveryDeadline" />
           </div>
         </div>
       </div>
@@ -173,14 +143,9 @@
         <h3>Szczegóły ładunku</h3>
         <div class="form-row">
           <div class="form-group">
-            <label>Rodzaj pojazdu</label>
-            <select [(ngModel)]="editOrderData.vehicleType">
-              <option *ngFor="let type of vehicleTypes" [value]="type">{{ type }}</option>
-            </select>
-          </div>
-          <div class="form-group">
             <label>Waga ładunku (kg)</label>
-            <input type="number" [(ngModel)]="editOrderData.cargoWeight" min="1" />
+            <input type="number" [(ngModel)]="editOrderData.cargoWeight" min="1" max="25000" />
+            <small class="hint">Maksymalna waga: 25000 kg.</small>
           </div>
         </div>
         <div class="form-group">

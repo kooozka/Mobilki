@@ -18,7 +18,6 @@ export class OrderDetailsComponent implements OnInit {
   errorMessage = '';
   successMessage = '';
   editOrderData: any = {};
-  vehicleTypes: string[] = [];
 
   constructor(
     private route: ActivatedRoute,
@@ -47,8 +46,8 @@ export class OrderDetailsComponent implements OnInit {
 
   canCancelOrder(): boolean {
     if (!this.order) return false;
-    return this.order.status !== 'COMPLETED' &&
-           this.order.status !== 'CANCELLED' &&
+    return this.order.status !== 'COMPLETED' && 
+           this.order.status !== 'CANCELLED' && 
            this.order.status !== 'IN_PROGRESS';
   }
 
@@ -73,20 +72,16 @@ export class OrderDetailsComponent implements OnInit {
     this.showEditDialog = true;
     this.errorMessage = '';
     this.editOrderData = {
-      title: this.order.title, // NEW: include title for editing
+      title: this.order.title,
       pickupLocation: this.order.pickupLocation,
       pickupAddress: this.order.pickupAddress,
-      pickupTimeFrom: this.formatDateForInput(this.order.pickupTimeFrom),
-      pickupTimeTo: this.formatDateForInput(this.order.pickupTimeTo),
+      pickupDate: this.formatDateForInput(this.order.pickupDate),
       deliveryLocation: this.order.deliveryLocation,
       deliveryAddress: this.order.deliveryAddress,
-      deliveryTimeFrom: this.formatDateForInput(this.order.deliveryTimeFrom),
-      deliveryTimeTo: this.formatDateForInput(this.order.deliveryTimeTo),
-      vehicleType: this.order.vehicleType,
+      deliveryDeadline: this.formatDateForInput(this.order.deliveryDeadline),
       cargoWeight: this.order.cargoWeight,
       description: this.order.description
     };
-    this.loadVehicleTypes();
   }
 
   closeEditDialog(): void {
@@ -99,36 +94,20 @@ export class OrderDetailsComponent implements OnInit {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  }
-
-  loadVehicleTypes(): void {
-    this.orderService.getVehicleTypes().subscribe({
-      next: (types) => {
-        this.vehicleTypes = types;
-      },
-      error: (error) => {
-        console.error('Error loading vehicle types:', error);
-      }
-    });
+    return `${year}-${month}-${day}`;
   }
 
   confirmEdit(): void {
     if (!this.order) return;
-
+    
     const request = {
       title: this.editOrderData.title,
       pickupLocation: this.editOrderData.pickupLocation,
       pickupAddress: this.editOrderData.pickupAddress,
-      pickupTimeFrom: this.editOrderData.pickupTimeFrom,
-      pickupTimeTo: this.editOrderData.pickupTimeTo,
+      pickupDate: this.editOrderData.pickupDate,
       deliveryLocation: this.editOrderData.deliveryLocation,
       deliveryAddress: this.editOrderData.deliveryAddress,
-      deliveryTimeFrom: this.editOrderData.deliveryTimeFrom,
-      deliveryTimeTo: this.editOrderData.deliveryTimeTo,
-      vehicleType: this.editOrderData.vehicleType,
+      deliveryDeadline: this.editOrderData.deliveryDeadline,
       cargoWeight: this.editOrderData.cargoWeight,
       description: this.editOrderData.description
     };
@@ -157,7 +136,7 @@ export class OrderDetailsComponent implements OnInit {
 
   confirmCancel(): void {
     if (!this.order) return;
-
+    
     if (!this.cancellationReason.trim()) {
       this.errorMessage = 'Proszę podać powód anulowania';
       return;
@@ -198,38 +177,14 @@ export class OrderDetailsComponent implements OnInit {
     return status.toLowerCase().replace('_', '-');
   }
 
-  // NEW: determine payment label based on order status
-  getPaymentStatusDisplay(status: string): string {
-    const map: { [key: string]: string } = {
-      'PENDING': 'Oczekuje płatności',
-      'CONFIRMED': 'Opłacone',
-      'ASSIGNED': 'Opłacone',
-      'IN_PROGRESS': 'Opłacone',
-      'COMPLETED': 'Opłacone',
-      'CANCELLED': 'Zwrócone / Anulowane'
-    };
-    return map[status] || 'Nieznany';
-  }
-
-  // NEW: small helper for CSS class selection
-  getPaymentStatusClass(status: string): string {
-    switch (status) {
-      case 'COMPLETED':
-      case 'CONFIRMED':
-      case 'ASSIGNED':
-      case 'IN_PROGRESS':
-        return 'paid';
-      case 'CANCELLED':
-        return 'refunded';
-      case 'PENDING':
-        return 'unpaid';
-      default:
-        return 'unpaid';
-    }
-  }
-
   getVehicleTypeDisplay(type: string): string {
-    return this.orderService.getVehicleTypeDisplay(type);
+    const map: {[key: string]: string} = {
+      'SMALL_VAN': 'Mały van',
+      'MEDIUM_TRUCK': 'Średnia ciężarówka',
+      'LARGE_TRUCK': 'Duża ciężarówka',
+      'SEMI_TRUCK': 'Naczepa'
+    };
+    return map[type] || type;
   }
 
   goBack(): void {

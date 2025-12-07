@@ -4,7 +4,7 @@ public enum VehicleType {
     SMALL_VAN("Mały van", 1500),
     MEDIUM_TRUCK("Średnia ciężarówka", 5000),
     LARGE_TRUCK("Duża ciężarówka", 12000),
-    SEMI_TRUCK("Naczepa", 24000);
+    SEMI_TRUCK("Naczepa", 25000);
 
     private final String displayName;
     private final double maxWeight; // w tonach

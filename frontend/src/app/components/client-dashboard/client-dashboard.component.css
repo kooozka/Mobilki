@@ -78,26 +78,6 @@
   font-weight: 600;
 }
 
-.section-header .action-buttons {
-  display: flex;
-  gap: 10px;
-}
-
-.btn-order-history {
-  background: #f1f3f4;
-  color: #3c4043;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.btn-order-history:hover {
-  background: #e2e5e7;
-}
-
 .btn-new-order {
   background: #4285f4;
   color: white;

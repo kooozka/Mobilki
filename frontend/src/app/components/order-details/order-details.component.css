@@ -334,55 +334,6 @@
   font-size: 18px;
 }
 
-.price-section {
-  padding: 20px;
-  background: #fff7ed;
-  border-radius: 8px;
-  border-left: 4px solid #f59e0b;
-}
-
-.price-section h2 {
-  margin-top: 0;
-  margin-bottom: 15px;
-  color: #f59e0b;
-  font-size: 18px;
-}
-
-.price-value {
-  color: #111827;
-  margin: 8px 0;
-}
-
-.payment-badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 12px;
-  margin-left: 10px;
-}
-
-/* payment states */
-.payment-badge.paid {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.payment-badge.awaiting {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.payment-badge.refunded {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.payment-badge.unpaid {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
 @media (max-width: 768px) {
   .details-grid {
     grid-template-columns: 1fr;

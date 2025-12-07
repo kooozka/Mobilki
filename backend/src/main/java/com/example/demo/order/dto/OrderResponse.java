@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -21,13 +22,11 @@ public class OrderResponse {
     
     private String pickupLocation;
     private String pickupAddress;
-    private LocalDateTime pickupTimeFrom;
-    private LocalDateTime pickupTimeTo;
+    private LocalDate pickupDate;
     
     private String deliveryLocation;
     private String deliveryAddress;
-    private LocalDateTime deliveryTimeFrom;
-    private LocalDateTime deliveryTimeTo;
+    private LocalDate deliveryDeadline;
     
     private VehicleType vehicleType;
     private Double cargoWeight;

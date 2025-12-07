@@ -22,7 +22,6 @@
       <thead>
         <tr>
           <th>ID</th>
-          <th>Tytuł</th> <!-- NEW: title column -->
           <th>Trasa</th>
           <th>Rodzaj pojazdu</th>
           <th>Waga (kg)</th>
@@ -35,7 +34,6 @@
       <tbody>
         <tr *ngFor="let order of filteredOrders">
           <td>#{{ order.id }}</td>
-          <td>{{ order.title }}</td> <!-- NEW: display title -->
           <td>
             <div class="route">
               <div>{{ order.pickupLocation }}</div>

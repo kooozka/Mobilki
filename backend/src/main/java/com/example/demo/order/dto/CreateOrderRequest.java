@@ -7,45 +7,39 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateOrderRequest {
 
-    @NotBlank(message = "Title is required")
+    @NotBlank(message = "Nazwa zlecenia jest wymagana")
     private String title;
     
-    @NotBlank(message = "Pickup location is required")
+    @NotBlank(message = "Lokalizacja odbioru jest wymagana")
     private String pickupLocation;
     
-    @NotBlank(message = "Pickup address is required")
+    @NotBlank(message = "Adres odbioru jest wymagany")
     private String pickupAddress;
     
-    @NotNull(message = "Pickup time from is required")
-    private LocalDateTime pickupTimeFrom;
+    @NotNull(message = "Data odbioru jest wymagana")
+    private LocalDate pickupDate;
     
-    @NotNull(message = "Pickup time to is required")
-    private LocalDateTime pickupTimeTo;
-    
-    @NotBlank(message = "Delivery location is required")
+    @NotBlank(message = "Lokalizacja dostawy jest wymagana")
     private String deliveryLocation;
     
-    @NotBlank(message = "Delivery address is required")
+    @NotBlank(message = "Adres dostawy jest wymagany")
     private String deliveryAddress;
     
-    @NotNull(message = "Delivery time from is required")
-    private LocalDateTime deliveryTimeFrom;
+    @NotNull(message = "Termin dostawy jest wymagany")
+    private LocalDate deliveryDeadline;
     
-    @NotNull(message = "Delivery time to is required")
-    private LocalDateTime deliveryTimeTo;
-    
-    @NotBlank(message = "Vehicle type is required")
+    // vehicleType jest opcjonalne - będzie automatycznie przypisane na podstawie wagi
     private String vehicleType;
     
-    @NotNull(message = "Cargo weight is required")
-    @Positive(message = "Cargo weight must be positive")
+    @NotNull(message = "Waga ładunku jest wymagana")
+    @Positive(message = "Waga ładunku musi być większa od 0")
     private Double cargoWeight;
     
     private String description;

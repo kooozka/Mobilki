@@ -15,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -37,56 +38,34 @@ public class OrderService {
     public OrderResponse createOrder(CreateOrderRequest request) {
         User client = getCurrentUser();
 
-        // Konwersja vehicleType ze stringa na enum
-        VehicleType vehicleType;
-        try {
-            vehicleType = VehicleType.valueOf(request.getVehicleType());
-        } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Nieprawidłowy typ pojazdu: " + request.getVehicleType());
+        // Walidacja wagi - maksymalnie 25000 kg
+        if (request.getCargoWeight() > 25000) {
+            throw new RuntimeException("Maksymalna waga ładunku to 25000 kg");
         }
 
-        // Walidacja dat
-        LocalDateTime tomorrow = LocalDateTime.now().plusDays(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
-        if (request.getPickupTimeFrom().isBefore(tomorrow)) {
+        // Automatyczne przypisanie najmniejszego możliwego pojazdu na podstawie wagi
+        VehicleType vehicleType = determineVehicleType(request.getCargoWeight());
+
+        // Walidacja dat - używamy LocalDate z requestu
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        if (request.getPickupDate().isBefore(tomorrow)) {
             throw new RuntimeException("Data odbioru nie może być wcześniejsza niż jutro. " +
-                "Najwcześniejsza możliwa data: " + tomorrow.toLocalDate());
+                "Najwcześniejsza możliwa data: " + tomorrow);
         }
         
-        if (request.getPickupTimeFrom().isAfter(request.getPickupTimeTo())) {
-            throw new RuntimeException("Nieprawidłowy zakres czasowy odbioru: data rozpoczęcia (" + 
-                request.getPickupTimeFrom() + ") jest późniejsza niż data zakończenia (" + 
-                request.getPickupTimeTo() + ")");
-        }
-        if (request.getDeliveryTimeFrom().isAfter(request.getDeliveryTimeTo())) {
-            throw new RuntimeException("Nieprawidłowy zakres czasowy dostawy: data rozpoczęcia (" + 
-                request.getDeliveryTimeFrom() + ") jest późniejsza niż data zakończenia (" + 
-                request.getDeliveryTimeTo() + ")");
-        }
-        if (request.getPickupTimeTo().isAfter(request.getDeliveryTimeFrom())) {
-            throw new RuntimeException("Odbiór musi zostać zakończony przed rozpoczęciem dostawy. " +
-                "Koniec okna odbioru: " + request.getPickupTimeTo() + 
-                ", Początek okna dostawy: " + request.getDeliveryTimeFrom());
-        }
-
-        // Walidacja wagi
-        if (request.getCargoWeight() > vehicleType.getMaxWeight()) {
-            throw new RuntimeException("Waga ładunku (" + request.getCargoWeight() + 
-                " kg) przekracza maksymalną ładowność pojazdu " + vehicleType + 
-                " (" + vehicleType.getMaxWeight() + " kg)");
+        if (request.getPickupDate().isAfter(request.getDeliveryDeadline())) {
+            throw new RuntimeException("Data odbioru nie może być późniejsza niż termin dostawy");
         }
 
         Order order = Order.builder()
                 .client(client)
                 .title(request.getTitle())
-                .price(calculatePrice(request))
                 .pickupLocation(request.getPickupLocation())
                 .pickupAddress(request.getPickupAddress())
-                .pickupTimeFrom(request.getPickupTimeFrom())
-                .pickupTimeTo(request.getPickupTimeTo())
+                .pickupDate(request.getPickupDate())
                 .deliveryLocation(request.getDeliveryLocation())
                 .deliveryAddress(request.getDeliveryAddress())
-                .deliveryTimeFrom(request.getDeliveryTimeFrom())
-                .deliveryTimeTo(request.getDeliveryTimeTo())
+                .deliveryDeadline(request.getDeliveryDeadline())
                 .vehicleType(vehicleType)
                 .cargoWeight(request.getCargoWeight())
                 .description(request.getDescription())
@@ -164,59 +143,52 @@ public class OrderService {
             throw new RuntimeException("Można modyfikować tylko zlecenia o statusie OCZEKUJĄCE lub POTWIERDZONE");
         }
 
-        // Konwersja vehicleType ze stringa na enum
-        VehicleType vehicleType;
-        try {
-            vehicleType = VehicleType.valueOf(request.getVehicleType());
-        } catch (IllegalArgumentException e) {
-            throw new RuntimeException("Nieprawidłowy typ pojazdu: " + request.getVehicleType());
+        // Walidacja wagi - maksymalnie 25000 kg
+        if (request.getCargoWeight() > 25000) {
+            throw new RuntimeException("Maksymalna waga ładunku to 25000 kg");
         }
 
-        // Walidacja dat
-        LocalDateTime tomorrow = LocalDateTime.now().plusDays(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
-        if (request.getPickupTimeFrom().isBefore(tomorrow)) {
+        // Automatyczne przypisanie najmniejszego możliwego pojazdu na podstawie wagi
+        VehicleType vehicleType = determineVehicleType(request.getCargoWeight());
+
+        // Walidacja dat - używamy LocalDate z requestu
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        if (request.getPickupDate().isBefore(tomorrow)) {
             throw new RuntimeException("Data odbioru nie może być wcześniejsza niż jutro. " +
-                "Najwcześniejsza możliwa data: " + tomorrow.toLocalDate());
+                "Najwcześniejsza możliwa data: " + tomorrow);
         }
         
-        if (request.getPickupTimeFrom().isAfter(request.getPickupTimeTo())) {
-            throw new RuntimeException("Nieprawidłowy zakres czasowy odbioru: data rozpoczęcia (" + 
-                request.getPickupTimeFrom() + ") jest późniejsza niż data zakończenia (" + 
-                request.getPickupTimeTo() + ")");
-        }
-        if (request.getDeliveryTimeFrom().isAfter(request.getDeliveryTimeTo())) {
-            throw new RuntimeException("Nieprawidłowy zakres czasowy dostawy: data rozpoczęcia (" + 
-                request.getDeliveryTimeFrom() + ") jest późniejsza niż data zakończenia (" + 
-                request.getDeliveryTimeTo() + ")");
-        }
-        if (request.getPickupTimeTo().isAfter(request.getDeliveryTimeFrom())) {
-            throw new RuntimeException("Odbiór musi zostać zakończony przed rozpoczęciem dostawy. " +
-                "Koniec okna odbioru: " + request.getPickupTimeTo() + 
-                ", Początek okna dostawy: " + request.getDeliveryTimeFrom());
-        }
-
-        // Walidacja wagi
-        if (request.getCargoWeight() > vehicleType.getMaxWeight()) {
-            throw new RuntimeException("Waga ładunku (" + request.getCargoWeight() + 
-                " kg) przekracza maksymalną ładowność pojazdu " + vehicleType + 
-                " (" + vehicleType.getMaxWeight() + " kg)");
+        if (request.getPickupDate().isAfter(request.getDeliveryDeadline())) {
+            throw new RuntimeException("Data odbioru nie może być późniejsza niż termin dostawy");
         }
 
         // Aktualizacja pól zlecenia
+        order.setTitle(request.getTitle());
         order.setPickupLocation(request.getPickupLocation());
         order.setPickupAddress(request.getPickupAddress());
-        order.setPickupTimeFrom(request.getPickupTimeFrom());
-        order.setPickupTimeTo(request.getPickupTimeTo());
+        order.setPickupDate(request.getPickupDate());
         order.setDeliveryLocation(request.getDeliveryLocation());
         order.setDeliveryAddress(request.getDeliveryAddress());
-        order.setDeliveryTimeFrom(request.getDeliveryTimeFrom());
-        order.setDeliveryTimeTo(request.getDeliveryTimeTo());
+        order.setDeliveryDeadline(request.getDeliveryDeadline());
         order.setVehicleType(vehicleType);
         order.setCargoWeight(request.getCargoWeight());
         order.setDescription(request.getDescription());
 
         order = orderRepository.save(order);
         return mapToResponse(order);
+    }
+
+    /**
+     * Automatycznie dobiera najmniejszy możliwy pojazd na podstawie wagi ładunku.
+     */
+    private VehicleType determineVehicleType(Double cargoWeight) {
+        for (VehicleType type : VehicleType.values()) {
+            if (cargoWeight <= type.getMaxWeight()) {
+                return type;
+            }
+        }
+        // Jeśli waga przekracza wszystkie pojazdy, zwróć największy
+        return VehicleType.SEMI_TRUCK;
     }
 
     private OrderResponse mapToResponse(Order order) {
@@ -227,44 +199,19 @@ public class OrderService {
                 .driverEmail(order.getDriver() != null ? order.getDriver().getEmail() : null)
                 .pickupLocation(order.getPickupLocation())
                 .pickupAddress(order.getPickupAddress())
-                .pickupTimeFrom(order.getPickupTimeFrom())
-                .pickupTimeTo(order.getPickupTimeTo())
+                .pickupDate(order.getPickupDate())
                 .deliveryLocation(order.getDeliveryLocation())
                 .deliveryAddress(order.getDeliveryAddress())
-                .deliveryTimeFrom(order.getDeliveryTimeFrom())
-                .deliveryTimeTo(order.getDeliveryTimeTo())
+                .deliveryDeadline(order.getDeliveryDeadline())
                 .vehicleType(order.getVehicleType())
                 .cargoWeight(order.getCargoWeight())
                 .description(order.getDescription())
                 .status(order.getStatus())
-                .price(order.getPrice())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .confirmedAt(order.getConfirmedAt())
                 .cancelledAt(order.getCancelledAt())
                 .cancellationReason(order.getCancellationReason())
                 .build();
-    }
-
-    private double calculatePrice(CreateOrderRequest createOrderRequest) {
-        // na razie uwzględnij tylko masą ładunku i typ pojazdu
-        double baseRate;
-        switch (createOrderRequest.getVehicleType()) {
-            case "SMALL_VAN":
-                baseRate = 1.0;
-                break;
-            case "MEDIUM_TRUCK":
-                baseRate = 1.5;
-                break;
-            case "LARGE_TRUCK":
-                baseRate = 2.0;
-                break;
-            case "SEMI_TRUCK":
-                baseRate = 3.0;
-                break;
-            default:
-                throw new RuntimeException("Nieprawidłowy typ pojazdu: " + createOrderRequest.getVehicleType());
-        }
-        return baseRate * createOrderRequest.getCargoWeight();
     }
 }
