@@ -195,11 +195,37 @@ public class DispatchController {
 
     // ========== PLANOWANIE TRAS ==========
 
-    @PostMapping("/routes/plan")
-    public ResponseEntity<?> planRoutes(@RequestBody PlanRouteRequest request) {
+    @GetMapping("/routes/available-drivers/{date}")
+    public ResponseEntity<?> getAvailableDriversForDate(
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         try {
-            List<RouteResponse> routes = routePlanningService.planRoutes(request.getOrderIds());
-            return ResponseEntity.ok(routes);
+            var drivers = routePlanningService.getAvailableDriversForDate(date).stream()
+                    .map(driver -> new DriverResponse(driver.getId(), driver.getEmail(), true))
+                    .toList();
+            return ResponseEntity.ok(drivers);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/routes/available-vehicles/{date}")
+    public ResponseEntity<?> getAvailableVehiclesForDate(
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        try {
+            var vehicles = routePlanningService.getAvailableVehiclesForDate(date).stream()
+                    .map(v -> vehicleService.mapToResponse(v))
+                    .toList();
+            return ResponseEntity.ok(vehicles);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/routes/plan")
+    public ResponseEntity<?> planRoute(@RequestBody PlanRouteRequest request) {
+        try {
+            RouteResponse route = routePlanningService.planRoute(request);
+            return ResponseEntity.ok(route);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }

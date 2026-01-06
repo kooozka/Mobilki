@@ -15,7 +15,7 @@ import java.util.Set;
 @AllArgsConstructor
 public class DriverScheduleRequest {
     private Long driverId;
-    private Long vehicleId;
+    // vehicleId usunięte - pojazd przypisywany do trasy, nie do grafiku
     private Set<DayOfWeek> workDays;
     private LocalTime workStartTime;
     private LocalTime workEndTime;

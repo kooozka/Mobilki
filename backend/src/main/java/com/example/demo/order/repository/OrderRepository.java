@@ -11,9 +11,25 @@ import java.util.List;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findByClientOrderByCreatedAtDesc(User client);
+
     List<Order> findByDriverOrderByCreatedAtDesc(User driver);
+
     List<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status);
+
     List<Order> findByStatus(OrderStatus status);
+
     List<Order> findByClientAndStatusOrderByCreatedAtDesc(User client, OrderStatus status);
+
     long countByStatus(OrderStatus status);
+
+    // Nowe metody dla panelu kierowcy
+    List<Order> findByDriverOrderByPickupDateDesc(User driver);
+
+    List<Order> findByDriverAndStatusIn(User driver, List<OrderStatus> statuses);
+
+    long countByDriver(User driver);
+
+    long countByDriverAndStatus(User driver, OrderStatus status);
+
+    long countByDriverAndStatusIn(User driver, List<OrderStatus> statuses);
 }

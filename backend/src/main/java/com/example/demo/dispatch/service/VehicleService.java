@@ -45,7 +45,8 @@ public class VehicleService {
     @Transactional
     public VehicleResponse createVehicle(VehicleRequest request) {
         if (vehicleRepository.findByRegistrationNumber(request.getRegistrationNumber()).isPresent()) {
-            throw new RuntimeException("Pojazd o numerze rejestracyjnym " + request.getRegistrationNumber() + " już istnieje");
+            throw new RuntimeException(
+                    "Pojazd o numerze rejestracyjnym " + request.getRegistrationNumber() + " już istnieje");
         }
 
         // Ładowność jest predefiniowana na podstawie typu pojazdu
@@ -93,7 +94,7 @@ public class VehicleService {
         vehicleRepository.deleteById(id);
     }
 
-    private VehicleResponse mapToResponse(Vehicle vehicle) {
+    public VehicleResponse mapToResponse(Vehicle vehicle) {
         return VehicleResponse.builder()
                 .id(vehicle.getId())
                 .registrationNumber(vehicle.getRegistrationNumber())

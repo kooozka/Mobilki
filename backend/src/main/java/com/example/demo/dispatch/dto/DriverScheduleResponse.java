@@ -17,8 +17,7 @@ public class DriverScheduleResponse {
     private Long id;
     private Long driverId;
     private String driverEmail;
-    private Long vehicleId;
-    private String vehicleRegistration;
+    // vehicleId/vehicleRegistration usunięte - pojazd przypisywany do trasy
     private Set<DayOfWeek> workDays;
     private LocalTime workStartTime;
     private LocalTime workEndTime;

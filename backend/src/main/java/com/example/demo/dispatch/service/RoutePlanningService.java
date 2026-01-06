@@ -1,5 +1,6 @@
 package com.example.demo.dispatch.service;
 
+import com.example.demo.dispatch.dto.PlanRouteRequest;
 import com.example.demo.dispatch.dto.RouteResponse;
 import com.example.demo.dispatch.model.DriverSchedule;
 import com.example.demo.dispatch.model.Route;
@@ -23,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -58,11 +58,11 @@ public class RoutePlanningService {
     public List<OrderResponse> getAllUnassignedOrders() {
         List<Order> pending = orderRepository.findByStatus(OrderStatus.PENDING);
         List<Order> confirmed = orderRepository.findByStatus(OrderStatus.CONFIRMED);
-        
+
         List<Order> all = new ArrayList<>();
         all.addAll(pending);
         all.addAll(confirmed);
-        
+
         return all.stream()
                 .filter(o -> o.getDriver() == null)
                 .map(this::mapToOrderResponse)
@@ -73,15 +73,15 @@ public class RoutePlanningService {
     public OrderResponse confirmOrder(Long orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono zlecenia o ID: " + orderId));
-        
+
         if (order.getStatus() != OrderStatus.PENDING) {
             throw new RuntimeException("Można zatwierdzić tylko zlecenia oczekujące");
         }
-        
+
         order.setStatus(OrderStatus.CONFIRMED);
-        order.setConfirmedAt(LocalDateTime.now());
+        order.setConfirmedAt(java.time.LocalDateTime.now());
         order = orderRepository.save(order);
-        
+
         return mapToOrderResponse(order);
     }
 
@@ -89,141 +89,169 @@ public class RoutePlanningService {
     public OrderResponse assignOrderToDriver(Long orderId, Long driverId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono zlecenia o ID: " + orderId));
-        
+
         User driver = userRepository.findById(driverId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono kierowcy o ID: " + driverId));
-        
+
         if (driver.getRole() != UserRole.DRIVER) {
             throw new RuntimeException("Użytkownik nie jest kierowcą");
         }
-        
+
         if (order.getStatus() == OrderStatus.CANCELLED || order.getStatus() == OrderStatus.COMPLETED) {
             throw new RuntimeException("Nie można przypisać anulowanego lub zakończonego zlecenia");
         }
-        
+
         order.setDriver(driver);
         order.setStatus(OrderStatus.ASSIGNED);
         order = orderRepository.save(order);
-        
+
         return mapToOrderResponse(order);
     }
 
+    // ========== POBIERANIE DOSTĘPNYCH ZASOBÓW ==========
+
     /**
-     * Planuje trasy dla wybranych zleceń używając algorytmu Nearest Neighbor (najbliższego sąsiada).
-     * Jest to prosty algorytm heurystyczny do rozwiązywania problemu TSP.
+     * Zwraca kierowców dostępnych w danym dniu (mają grafik i nie mają trasy)
      */
-    @Transactional
-    public List<RouteResponse> planRoutes(List<Long> orderIds) {
-        // Pobierz zlecenia
-        List<Order> orders = orderIds.stream()
-                .map(id -> orderRepository.findById(id)
-                        .orElseThrow(() -> new RuntimeException("Nie znaleziono zlecenia o ID: " + id)))
+    public List<User> getAvailableDriversForDate(LocalDate date) {
+        DayOfWeek dayOfWeek = date.getDayOfWeek();
+
+        // Znajdź kierowców z aktywnym grafikiem na dany dzień
+        List<DriverSchedule> activeSchedules = scheduleRepository.findByActiveTrue().stream()
+                .filter(s -> s.getWorkDays() != null && s.getWorkDays().contains(dayOfWeek))
                 .collect(Collectors.toList());
-        
-        // Sprawdź czy wszystkie zlecenia są potwierdzone
-        for (Order order : orders) {
-            if (order.getStatus() != OrderStatus.CONFIRMED && order.getStatus() != OrderStatus.PENDING) {
-                throw new RuntimeException("Zlecenie " + order.getId() + " ma niewłaściwy status do planowania");
-            }
-        }
-        
-        // Grupuj zlecenia według typu pojazdu
-        Map<VehicleType, List<Order>> ordersByVehicleType = orders.stream()
-                .collect(Collectors.groupingBy(Order::getVehicleType));
-        
-        List<Route> routes = new ArrayList<>();
-        LocalDate routeDate = determineRouteDate(orders);
-        DayOfWeek dayOfWeek = routeDate.getDayOfWeek();
-        
-        // Dla każdego typu pojazdu znajdź dostępnych kierowców i zaplanuj trasę
-        for (Map.Entry<VehicleType, List<Order>> entry : ordersByVehicleType.entrySet()) {
-            VehicleType vehicleType = entry.getKey();
-            List<Order> vehicleOrders = entry.getValue();
-            
-            // Znajdź kierowców z odpowiednim pojazdem i grafiku na dany dzień
-            List<DriverSchedule> availableSchedules = scheduleRepository.findByActiveTrue().stream()
-                    .filter(s -> s.getWorkDays() != null && s.getWorkDays().contains(dayOfWeek))
-                    .filter(s -> s.getAssignedVehicle() != null && s.getAssignedVehicle().getType() == vehicleType)
-                    .collect(Collectors.toList());
-            
-            if (availableSchedules.isEmpty()) {
-                log.warn("Brak dostępnych kierowców dla typu pojazdu: " + vehicleType);
-                // Przypisz do pierwszego dostępnego kierowcy z jakimkolwiek pojazdem tego typu
-                List<Vehicle> vehicles = vehicleRepository.findByAvailableTrueAndType(vehicleType);
-                if (vehicles.isEmpty()) {
-                    throw new RuntimeException("Brak dostępnych pojazdów typu: " + vehicleType);
-                }
-                
-                List<User> drivers = userRepository.findByRole(UserRole.DRIVER);
-                if (drivers.isEmpty()) {
-                    throw new RuntimeException("Brak zarejestrowanych kierowców");
-                }
-                
-                // Utwórz trasę z pierwszym dostępnym kierowcą i pojazdem
-                Route route = createOptimizedRoute(vehicleOrders, drivers.get(0), vehicles.get(0), routeDate);
-                routes.add(route);
-            } else {
-                // Rozdziel zlecenia między dostępnych kierowców
-                int ordersPerDriver = (int) Math.ceil((double) vehicleOrders.size() / availableSchedules.size());
-                
-                for (int i = 0; i < availableSchedules.size() && !vehicleOrders.isEmpty(); i++) {
-                    DriverSchedule schedule = availableSchedules.get(i);
-                    
-                    List<Order> driverOrders = vehicleOrders.subList(0, 
-                            Math.min(ordersPerDriver, vehicleOrders.size()));
-                    
-                    Route route = createOptimizedRoute(
-                            new ArrayList<>(driverOrders), 
-                            schedule.getDriver(), 
-                            schedule.getAssignedVehicle(), 
-                            routeDate
-                    );
-                    routes.add(route);
-                    
-                    vehicleOrders = new ArrayList<>(vehicleOrders.subList(
-                            Math.min(ordersPerDriver, vehicleOrders.size()), 
-                            vehicleOrders.size()
-                    ));
-                }
-            }
-        }
-        
-        // Zapisz trasy i zaktualizuj statusy zleceń
-        List<Route> savedRoutes = new ArrayList<>();
-        for (Route route : routes) {
-            route = routeRepository.save(route);
-            
-            // Zaktualizuj statusy zleceń
-            for (Order order : route.getOrders()) {
-                order.setStatus(OrderStatus.ASSIGNED);
-                order.setDriver(route.getDriver());
-                orderRepository.save(order);
-            }
-            
-            savedRoutes.add(route);
-        }
-        
-        return savedRoutes.stream()
-                .map(this::mapToRouteResponse)
+
+        // Filtruj tych, którzy nie mają jeszcze trasy tego dnia
+        return activeSchedules.stream()
+                .map(DriverSchedule::getDriver)
+                .filter(driver -> !routeRepository.existsByDriverAndRouteDateAndStatusNot(
+                        driver, date, RouteStatus.CANCELLED))
                 .collect(Collectors.toList());
     }
 
     /**
-     * Algorytm Nearest Neighbor - optymalizuje kolejność punktów na trasie.
+     * Zwraca pojazdy dostępne w danym dniu (nie mają trasy)
      */
-    private Route createOptimizedRoute(List<Order> orders, User driver, Vehicle vehicle, LocalDate routeDate) {
-        if (orders.isEmpty()) {
+    public List<Vehicle> getAvailableVehiclesForDate(LocalDate date) {
+        return vehicleRepository.findByAvailableTrue().stream()
+                .filter(vehicle -> !routeRepository.existsByVehicleAndRouteDateAndStatusNot(
+                        vehicle, date, RouteStatus.CANCELLED))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Zwraca pojazdy dostępne w danym dniu i pasujące do wymagań zleceń
+     */
+    public List<Vehicle> getAvailableVehiclesForDateAndOrders(LocalDate date, List<Long> orderIds) {
+        // Pobierz zlecenia i znajdź maksymalny wymagany typ pojazdu
+        VehicleType requiredType = orderIds.stream()
+                .map(id -> orderRepository.findById(id))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(Order::getVehicleType)
+                .max(Comparator.comparingInt(VehicleType::ordinal))
+                .orElse(VehicleType.SMALL_VAN);
+
+        return getAvailableVehiclesForDate(date).stream()
+                .filter(v -> v.getType().ordinal() >= requiredType.ordinal())
+                .collect(Collectors.toList());
+    }
+
+    // ========== PLANOWANIE TRASY ==========
+
+    /**
+     * Planuje trasę z ręcznym wyborem daty, kierowcy i pojazdu
+     */
+    @Transactional
+    public RouteResponse planRoute(PlanRouteRequest request) {
+        // Walidacja podstawowa
+        if (request.getRouteDate() == null) {
+            throw new RuntimeException("Data trasy jest wymagana");
+        }
+        if (request.getDriverId() == null) {
+            throw new RuntimeException("Kierowca jest wymagany");
+        }
+        if (request.getVehicleId() == null) {
+            throw new RuntimeException("Pojazd jest wymagany");
+        }
+        if (request.getOrderIds() == null || request.getOrderIds().isEmpty()) {
             throw new RuntimeException("Lista zleceń nie może być pusta");
         }
-        
-        // Używamy algorytmu Nearest Neighbor do optymalizacji kolejności
+
+        LocalDate routeDate = request.getRouteDate();
+        DayOfWeek dayOfWeek = routeDate.getDayOfWeek();
+
+        // Pobierz kierowcę
+        User driver = userRepository.findById(request.getDriverId())
+                .orElseThrow(() -> new RuntimeException("Nie znaleziono kierowcy o ID: " + request.getDriverId()));
+
+        if (driver.getRole() != UserRole.DRIVER) {
+            throw new RuntimeException("Wybrany użytkownik nie jest kierowcą");
+        }
+
+        // Sprawdź czy kierowca ma grafik na ten dzień
+        Optional<DriverSchedule> driverSchedule = scheduleRepository.findByDriverAndActiveTrue(driver);
+        if (driverSchedule.isEmpty()) {
+            throw new RuntimeException("Kierowca nie ma aktywnego grafiku pracy");
+        }
+        if (!driverSchedule.get().getWorkDays().contains(dayOfWeek)) {
+            throw new RuntimeException("Kierowca nie pracuje w wybranym dniu tygodnia");
+        }
+
+        // Sprawdź czy kierowca nie ma już trasy tego dnia
+        if (routeRepository.existsByDriverAndRouteDateAndStatusNot(driver, routeDate, RouteStatus.CANCELLED)) {
+            throw new RuntimeException("Kierowca ma już zaplanowaną trasę na ten dzień");
+        }
+
+        // Pobierz pojazd
+        Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+                .orElseThrow(() -> new RuntimeException("Nie znaleziono pojazdu o ID: " + request.getVehicleId()));
+
+        if (!vehicle.getAvailable()) {
+            throw new RuntimeException("Wybrany pojazd jest niedostępny");
+        }
+
+        // Sprawdź czy pojazd nie ma już trasy tego dnia
+        if (routeRepository.existsByVehicleAndRouteDateAndStatusNot(vehicle, routeDate, RouteStatus.CANCELLED)) {
+            throw new RuntimeException("Pojazd ma już zaplanowaną trasę na ten dzień");
+        }
+
+        // Pobierz zlecenia
+        List<Order> orders = request.getOrderIds().stream()
+                .map(id -> orderRepository.findById(id)
+                        .orElseThrow(() -> new RuntimeException("Nie znaleziono zlecenia o ID: " + id)))
+                .collect(Collectors.toList());
+
+        // Sprawdź statusy zleceń
+        for (Order order : orders) {
+            if (order.getStatus() != OrderStatus.CONFIRMED && order.getStatus() != OrderStatus.PENDING) {
+                throw new RuntimeException("Zlecenie #" + order.getId() + " ma niewłaściwy status do planowania");
+            }
+            if (order.getRoute() != null) {
+                throw new RuntimeException("Zlecenie #" + order.getId() + " jest już przypisane do innej trasy");
+            }
+        }
+
+        // Sprawdź czy pojazd pasuje do wymagań zleceń
+        VehicleType maxRequired = orders.stream()
+                .map(Order::getVehicleType)
+                .max(Comparator.comparingInt(VehicleType::ordinal))
+                .orElse(VehicleType.SMALL_VAN);
+
+        if (vehicle.getType().ordinal() < maxRequired.ordinal()) {
+            throw new RuntimeException("Wybrany pojazd (" + vehicle.getType() +
+                    ") jest za mały dla zleceń wymagających " + maxRequired);
+        }
+
+        // Optymalizuj kolejność zleceń
         List<Order> optimizedOrders = nearestNeighborAlgorithm(orders);
-        
-        // Oblicz całkowitą odległość i czas
+
+        // Oblicz dystans i czas
         double totalDistance = calculateTotalDistance(optimizedOrders);
         int estimatedTime = calculateEstimatedTime(totalDistance, optimizedOrders.size());
-        
-        return Route.builder()
+
+        // Utwórz trasę
+        Route route = Route.builder()
                 .driver(driver)
                 .vehicle(vehicle)
                 .routeDate(routeDate)
@@ -232,125 +260,106 @@ public class RoutePlanningService {
                 .estimatedTimeMinutes(estimatedTime)
                 .status(RouteStatus.PLANNED)
                 .build();
+
+        route = routeRepository.save(route);
+
+        // Przypisz zlecenia do trasy
+        for (int i = 0; i < optimizedOrders.size(); i++) {
+            Order order = optimizedOrders.get(i);
+            order.setStatus(OrderStatus.ASSIGNED);
+            order.setDriver(driver);
+            order.setRoute(route);
+            order.setOrderSequence(i);
+            orderRepository.save(order);
+        }
+
+        log.info("Utworzono trasę #{} na dzień {} dla kierowcy {} z pojazdem {}, {} zleceń",
+                route.getId(), routeDate, driver.getEmail(), vehicle.getRegistrationNumber(), orders.size());
+
+        return mapToRouteResponse(route);
     }
 
     /**
      * Algorytm najbliższego sąsiada (Nearest Neighbor) dla problemu TSP.
-     * Zaczyna od pierwszego punktu i zawsze wybiera najbliższy nieodwiedzony punkt.
      */
     private List<Order> nearestNeighborAlgorithm(List<Order> orders) {
         if (orders.size() <= 1) {
             return new ArrayList<>(orders);
         }
-        
+
         List<Order> remaining = new ArrayList<>(orders);
         List<Order> optimized = new ArrayList<>();
-        
-        // Zacznij od pierwszego zlecenia
+
         Order current = remaining.remove(0);
         optimized.add(current);
-        
+
         while (!remaining.isEmpty()) {
             Order nearest = findNearestOrder(current, remaining);
             optimized.add(nearest);
             remaining.remove(nearest);
             current = nearest;
         }
-        
+
         return optimized;
     }
 
-    /**
-     * Znajduje najbliższe zlecenie do obecnego punktu.
-     */
     private Order findNearestOrder(Order current, List<Order> candidates) {
         Order nearest = null;
         double minDistance = Double.MAX_VALUE;
-        
+
         for (Order candidate : candidates) {
-            // Oblicz odległość od punktu dostawy obecnego zlecenia do punktu odbioru następnego
             double distance = calculateDistance(
                     current.getDeliveryLocation(),
-                    candidate.getPickupLocation()
-            );
-            
+                    candidate.getPickupLocation());
+
             if (distance < minDistance) {
                 minDistance = distance;
                 nearest = candidate;
             }
         }
-        
+
         return nearest;
     }
 
-    /**
-     * Prosta symulacja odległości między miastami.
-     * W rzeczywistości użyjemy API Google Maps
-     */
     private double calculateDistance(String location1, String location2) {
-        // Dla uproszczenia: losowa odległość bazująca na hashach nazw miast
-        // W rzeczywistej aplikacji skorzystamy z API map
         if (location1.equalsIgnoreCase(location2)) {
-            return 5.0; // Zlecenia w tym samym mieście
+            return 5.0;
         }
-        
-        // Używamy long aby uniknąć integer overflow przy dodawaniu
+
         long hash1 = Math.abs((long) location1.toLowerCase().hashCode());
         long hash2 = Math.abs((long) location2.toLowerCase().hashCode());
-        
-        // Generuj "pseudo-losową" ale deterministyczną odległość między 10 a 200 km
+
         double baseDistance = ((hash1 + hash2) % 190) + 10;
         return Math.round(baseDistance * 10.0) / 10.0;
     }
 
-    /**
-     * Oblicza całkowitą odległość trasy.
-     */
     private double calculateTotalDistance(List<Order> orders) {
-        if (orders.isEmpty()) return 0;
-        
+        if (orders.isEmpty())
+            return 0;
+
         double total = 0;
-        
+
         for (int i = 0; i < orders.size(); i++) {
             Order order = orders.get(i);
-            
-            // Odległość wewnątrz zlecenia (odbiór -> dostawa)
             total += calculateDistance(order.getPickupLocation(), order.getDeliveryLocation());
-            
-            // Odległość do następnego zlecenia
+
             if (i < orders.size() - 1) {
                 Order next = orders.get(i + 1);
                 total += calculateDistance(order.getDeliveryLocation(), next.getPickupLocation());
             }
         }
-        
+
         return Math.round(total * 10.0) / 10.0;
     }
 
-    /**
-     * Oblicza szacowany czas trasy w minutach.
-     */
     private int calculateEstimatedTime(double distanceKm, int numberOfStops) {
-        // Czas przejazdu
         double travelTimeHours = distanceKm / AVERAGE_SPEED_KMH;
         int travelTimeMinutes = (int) Math.round(travelTimeHours * 60);
-        
-        // Czas obsługi punktów (odbiór + dostawa dla każdego zlecenia)
         int serviceTime = numberOfStops * 2 * SERVICE_TIME_MINUTES;
-        
         return travelTimeMinutes + serviceTime;
     }
 
-    /**
-     * Określa datę trasy na podstawie zleceń.
-     */
-    private LocalDate determineRouteDate(List<Order> orders) {
-        // Znajdź najwcześniejszą datę odbioru
-        return orders.stream()
-                .map(Order::getPickupDate)
-                .min(LocalDate::compareTo)
-                .orElse(LocalDate.now().plusDays(1));
-    }
+    // ========== ZARZĄDZANIE TRASAMI ==========
 
     public List<RouteResponse> getAllRoutes() {
         return routeRepository.findAll().stream()
@@ -370,15 +379,11 @@ public class RoutePlanningService {
         return mapToRouteResponse(route);
     }
 
-    /**
-     * Anuluje trasę i przywraca zlecenia do statusu CONFIRMED (do ponownego zaplanowania).
-     */
     @Transactional
     public RouteResponse cancelRoute(Long routeId) {
         Route route = routeRepository.findById(routeId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono trasy o ID: " + routeId));
-        
-        // Sprawdź czy trasę można anulować
+
         if (route.getStatus() == RouteStatus.COMPLETED) {
             throw new RuntimeException("Nie można anulować zakończonej trasy");
         }
@@ -388,22 +393,25 @@ public class RoutePlanningService {
         if (route.getStatus() == RouteStatus.IN_PROGRESS) {
             throw new RuntimeException("Nie można anulować trasy w trakcie realizacji");
         }
-        
-        // Przywróć zlecenia do statusu CONFIRMED i usuń przypisanie kierowcy
+
+        // Przywróć zlecenia do statusu CONFIRMED
         for (Order order : route.getOrders()) {
             order.setStatus(OrderStatus.CONFIRMED);
             order.setDriver(null);
+            order.setRoute(null);
+            order.setOrderSequence(null);
             orderRepository.save(order);
         }
-        
-        // Oznacz trasę jako anulowaną
+
         route.setStatus(RouteStatus.CANCELLED);
         route = routeRepository.save(route);
-        
+
         log.info("Anulowano trasę #{}, {} zleceń przywrócono do planowania", routeId, route.getOrders().size());
-        
+
         return mapToRouteResponse(route);
     }
+
+    // ========== MAPOWANIA ==========
 
     private OrderResponse mapToOrderResponse(Order order) {
         return OrderResponse.builder()

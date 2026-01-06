@@ -4,9 +4,7 @@ import com.example.demo.dispatch.dto.DriverResponse;
 import com.example.demo.dispatch.dto.DriverScheduleRequest;
 import com.example.demo.dispatch.dto.DriverScheduleResponse;
 import com.example.demo.dispatch.model.DriverSchedule;
-import com.example.demo.dispatch.model.Vehicle;
 import com.example.demo.dispatch.repository.DriverScheduleRepository;
-import com.example.demo.dispatch.repository.VehicleRepository;
 import com.example.demo.security.model.User;
 import com.example.demo.security.model.UserRole;
 import com.example.demo.security.repository.UserRepository;
@@ -23,7 +21,6 @@ public class DriverScheduleService {
 
     private final DriverScheduleRepository scheduleRepository;
     private final UserRepository userRepository;
-    private final VehicleRepository vehicleRepository;
 
     public List<DriverResponse> getAllDrivers() {
         return userRepository.findByRole(UserRole.DRIVER).stream()
@@ -52,10 +49,10 @@ public class DriverScheduleService {
     public DriverScheduleResponse getScheduleByDriver(Long driverId) {
         User driver = userRepository.findById(driverId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono kierowcy o ID: " + driverId));
-        
+
         DriverSchedule schedule = scheduleRepository.findByDriverAndActiveTrue(driver)
                 .orElseThrow(() -> new RuntimeException("Kierowca nie ma aktywnego grafiku"));
-        
+
         return mapToResponse(schedule);
     }
 
@@ -68,12 +65,6 @@ public class DriverScheduleService {
             throw new RuntimeException("Użytkownik nie jest kierowcą");
         }
 
-        Vehicle vehicle = null;
-        if (request.getVehicleId() != null) {
-            vehicle = vehicleRepository.findById(request.getVehicleId())
-                    .orElseThrow(() -> new RuntimeException("Nie znaleziono pojazdu o ID: " + request.getVehicleId()));
-        }
-
         // Dezaktywuj poprzedni aktywny grafik
         scheduleRepository.findByDriverAndActiveTrue(driver)
                 .ifPresent(existing -> {
@@ -83,7 +74,6 @@ public class DriverScheduleService {
 
         DriverSchedule schedule = DriverSchedule.builder()
                 .driver(driver)
-                .assignedVehicle(vehicle)
                 .workDays(request.getWorkDays())
                 .workStartTime(request.getWorkStartTime())
                 .workEndTime(request.getWorkEndTime())
@@ -98,14 +88,6 @@ public class DriverScheduleService {
     public DriverScheduleResponse updateSchedule(Long id, DriverScheduleRequest request) {
         DriverSchedule schedule = scheduleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono grafiku o ID: " + id));
-
-        if (request.getVehicleId() != null) {
-            Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
-                    .orElseThrow(() -> new RuntimeException("Nie znaleziono pojazdu o ID: " + request.getVehicleId()));
-            schedule.setAssignedVehicle(vehicle);
-        } else {
-            schedule.setAssignedVehicle(null);
-        }
 
         schedule.setWorkDays(request.getWorkDays());
         schedule.setWorkStartTime(request.getWorkStartTime());
@@ -132,9 +114,6 @@ public class DriverScheduleService {
                 .id(driver.getId())
                 .email(driver.getEmail())
                 .hasActiveSchedule(schedule.isPresent())
-                .assignedVehicle(schedule.map(s -> 
-                    s.getAssignedVehicle() != null ? s.getAssignedVehicle().getRegistrationNumber() : null
-                ).orElse(null))
                 .build();
     }
 
@@ -143,8 +122,6 @@ public class DriverScheduleService {
                 .id(schedule.getId())
                 .driverId(schedule.getDriver().getId())
                 .driverEmail(schedule.getDriver().getEmail())
-                .vehicleId(schedule.getAssignedVehicle() != null ? schedule.getAssignedVehicle().getId() : null)
-                .vehicleRegistration(schedule.getAssignedVehicle() != null ? schedule.getAssignedVehicle().getRegistrationNumber() : null)
                 .workDays(schedule.getWorkDays())
                 .workStartTime(schedule.getWorkStartTime())
                 .workEndTime(schedule.getWorkEndTime())

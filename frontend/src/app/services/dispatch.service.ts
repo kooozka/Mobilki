@@ -7,7 +7,7 @@ export interface DriverResponse {
   id: number;
   email: string;
   hasActiveSchedule: boolean;
-  assignedVehicle: string | null;
+  // assignedVehicle usunięte - pojazd przypisywany do trasy
 }
 
 export interface VehicleResponse {
@@ -35,8 +35,7 @@ export interface DriverScheduleResponse {
   id: number;
   driverId: number;
   driverEmail: string;
-  vehicleId: number | null;
-  vehicleRegistration: string | null;
+  // vehicleId/vehicleRegistration usunięte - pojazd przypisywany do trasy
   workDays: string[];
   workStartTime: string;
   workEndTime: string;
@@ -45,7 +44,7 @@ export interface DriverScheduleResponse {
 
 export interface DriverScheduleRequest {
   driverId: number;
-  vehicleId: number | null;
+  // vehicleId usunięte - pojazd przypisywany do trasy
   workDays: string[];
   workStartTime: string;
   workEndTime: string;
@@ -67,6 +66,9 @@ export interface RouteResponse {
 }
 
 export interface PlanRouteRequest {
+  routeDate: string;
+  driverId: number;
+  vehicleId: number;
   orderIds: number[];
 }
 
@@ -79,7 +81,7 @@ export class DispatchService {
   constructor(private http: HttpClient) { }
 
   // ========== ZLECENIA ==========
-  
+
   getPendingOrders(): Observable<OrderResponse[]> {
     return this.http.get<OrderResponse[]>(`${this.apiUrl}/orders/pending`);
   }
@@ -97,9 +99,9 @@ export class DispatchService {
   }
 
   assignOrder(orderId: number, driverId: number): Observable<OrderResponse> {
-    return this.http.put<OrderResponse>(`${this.apiUrl}/orders/${orderId}/assign`, { 
-      orderId, 
-      driverId 
+    return this.http.put<OrderResponse>(`${this.apiUrl}/orders/${orderId}/assign`, {
+      orderId,
+      driverId
     });
   }
 
@@ -159,8 +161,19 @@ export class DispatchService {
 
   // ========== PLANOWANIE TRAS ==========
 
-  planRoutes(orderIds: number[]): Observable<RouteResponse[]> {
-    return this.http.post<RouteResponse[]>(`${this.apiUrl}/routes/plan`, { orderIds });
+  // Pobierz kierowców dostępnych na dany dzień
+  getAvailableDriversForDate(date: string): Observable<DriverResponse[]> {
+    return this.http.get<DriverResponse[]>(`${this.apiUrl}/routes/available-drivers/${date}`);
+  }
+
+  // Pobierz pojazdy dostępne na dany dzień  
+  getAvailableVehiclesForDate(date: string): Observable<VehicleResponse[]> {
+    return this.http.get<VehicleResponse[]>(`${this.apiUrl}/routes/available-vehicles/${date}`);
+  }
+
+  // Planuj trasę z ręcznym wyborem daty, kierowcy i pojazdu
+  planRoute(request: PlanRouteRequest): Observable<RouteResponse> {
+    return this.http.post<RouteResponse>(`${this.apiUrl}/routes/plan`, request);
   }
 
   getAllRoutes(): Observable<RouteResponse[]> {

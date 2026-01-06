@@ -1,6 +1,9 @@
 <div class="dashboard-container">
   <div class="header">
-    <h1>Panel Kierownika Spedycji</h1>
+    <div class="header-left">
+      <h1>Panel Kierownika Spedycji</h1>
+      <span class="manager-badge">📋 Manager</span>
+    </div>
     <div class="user-info">
       <span>{{ userEmail }}</span>
       <button (click)="logout()" class="btn-logout">Wyloguj</button>
@@ -10,16 +13,16 @@
   <!-- Tabs -->
   <div class="tabs">
     <button [class.active]="activeTab === 'orders'" (click)="setActiveTab('orders')">
-      Zlecenia
+      📦 Zlecenia
     </button>
     <button [class.active]="activeTab === 'schedules'" (click)="setActiveTab('schedules')">
-      Grafiki pracy
+      📅 Grafiki pracy
     </button>
     <button [class.active]="activeTab === 'routes'" (click)="setActiveTab('routes')">
-      Planowanie tras
+      🗺️ Planowanie tras
     </button>
     <button [class.active]="activeTab === 'vehicles'" (click)="setActiveTab('vehicles')">
-      Pojazdy
+      🚛 Pojazdy
     </button>
   </div>
 
@@ -109,7 +112,6 @@
           </span>
         </div>
         <div class="schedule-details">
-          <p><strong>Pojazd:</strong> {{ schedule.vehicleRegistration || 'Nie przypisano' }}</p>
           <p><strong>Dni pracy:</strong> {{ getDayLabels(schedule.workDays) }}</p>
           <p><strong>Godziny:</strong> {{ schedule.workStartTime }} - {{ schedule.workEndTime }}</p>
         </div>
@@ -129,9 +131,6 @@
           <span class="driver-status">
             {{ driver.hasActiveSchedule ? '✓ Ma grafik' : '✗ Brak grafiku' }}
           </span>
-          <span *ngIf="driver.assignedVehicle" class="driver-vehicle">
-            Pojazd: {{ driver.assignedVehicle }}
-          </span>
         </div>
       </div>
     </div>
@@ -141,7 +140,7 @@
   <div class="tab-content" *ngIf="activeTab === 'routes'">
     <div class="section">
       <h2>Wybierz zlecenia do zaplanowania</h2>
-      
+
       <div class="filter-bar">
         <div class="filter-group">
           <label>Filtruj po dacie odbioru:</label>
@@ -172,9 +171,7 @@
           <tbody>
             <tr *ngFor="let order of filteredConfirmedOrders" [class.selected]="isOrderSelected(order.id)">
               <td>
-                <input type="checkbox" 
-                       [checked]="isOrderSelected(order.id)"
-                       (change)="toggleOrderSelection(order.id)">
+                <input type="checkbox" [checked]="isOrderSelected(order.id)" (change)="toggleOrderSelection(order.id)">
               </td>
               <td>#{{ order.id }}</td>
               <td>{{ order.pickupLocation }} → {{ order.deliveryLocation }}</td>
@@ -185,11 +182,12 @@
         </table>
         <div class="plan-actions">
           <span>Wybrano: {{ selectedOrders.size }} zleceń</span>
-          <button class="btn-small btn-secondary" (click)="selectAllFiltered()" *ngIf="filteredConfirmedOrders.length > 0">
+          <button class="btn-small btn-secondary" (click)="selectAllFiltered()"
+            *ngIf="filteredConfirmedOrders.length > 0">
             Zaznacz wszystkie
           </button>
-          <button class="btn-primary" (click)="planRoutes()" [disabled]="selectedOrders.size === 0">
-            Uruchom planowanie
+          <button class="btn-primary" (click)="openRoutePlanDialog()" [disabled]="selectedOrders.size === 0">
+            🗓️ Zaplanuj trasę
           </button>
         </div>
       </div>
@@ -264,7 +262,7 @@
 <div class="modal" *ngIf="showVehicleDialog">
   <div class="modal-content">
     <h2>{{ editingVehicle ? 'Edytuj pojazd' : 'Dodaj pojazd' }}</h2>
-    
+
     <div class="form-group">
       <label>Nr rejestracyjny</label>
       <input type="text" [(ngModel)]="vehicleForm.registrationNumber">
@@ -316,7 +314,7 @@
 <div class="modal" *ngIf="showScheduleDialog">
   <div class="modal-content modal-large">
     <h2>{{ editingSchedule ? 'Edytuj grafik' : 'Dodaj grafik' }}</h2>
-    
+
     <div class="form-group">
       <label>Kierowca</label>
       <select [(ngModel)]="scheduleForm.driverId" [disabled]="editingSchedule !== null">
@@ -325,15 +323,7 @@
         </option>
       </select>
     </div>
-    <div class="form-group">
-      <label>Przypisany pojazd</label>
-      <select [(ngModel)]="scheduleForm.vehicleId">
-        <option [ngValue]="null">-- Brak --</option>
-        <option *ngFor="let vehicle of vehicles" [ngValue]="vehicle.id">
-          {{ vehicle.registrationNumber }} ({{ vehicle.brand }} {{ vehicle.model }})
-        </option>
-      </select>
-    </div>
+    <!-- Sekcja pojazdu usunięta - pojazd przypisywany do trasy, nie do grafiku -->
     <div class="form-group">
       <label>Dni pracy</label>
       <div class="days-grid">
@@ -367,11 +357,58 @@
   </div>
 </div>
 
+<!-- Modal: Planowanie trasy -->
+<div class="modal" *ngIf="showRoutePlanDialog">
+  <div class="modal-content">
+    <h2>🗺️ Planowanie trasy</h2>
+    <p>Wybrano {{ selectedOrders.size }} zleceń do zaplanowania</p>
+
+    <div class="form-group">
+      <label>Data trasy *</label>
+      <input type="date" [(ngModel)]="routePlanForm.routeDate" (ngModelChange)="onRouteDateChange()">
+    </div>
+
+    <div class="form-group">
+      <label>Kierowca *</label>
+      <select [(ngModel)]="routePlanForm.driverId">
+        <option [value]="0" disabled>-- Wybierz kierowcę --</option>
+        <option *ngFor="let driver of availableDriversForDate" [value]="driver.id">
+          {{ driver.email }}
+        </option>
+      </select>
+      <p class="helper-text" *ngIf="availableDriversForDate.length === 0">
+        Brak dostępnych kierowców na wybraną datę
+      </p>
+    </div>
+
+    <div class="form-group">
+      <label>Pojazd *</label>
+      <select [(ngModel)]="routePlanForm.vehicleId">
+        <option [value]="0" disabled>-- Wybierz pojazd --</option>
+        <option *ngFor="let vehicle of availableVehiclesForDate" [value]="vehicle.id">
+          {{ vehicle.registrationNumber }} - {{ getVehicleTypeDisplay(vehicle.type) }} ({{ vehicle.maxWeight }} kg)
+        </option>
+      </select>
+      <p class="helper-text" *ngIf="availableVehiclesForDate.length === 0">
+        Brak dostępnych pojazdów na wybraną datę
+      </p>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" (click)="closeRoutePlanDialog()">Anuluj</button>
+      <button class="btn-primary" (click)="planRoute()"
+        [disabled]="!routePlanForm.routeDate || !routePlanForm.driverId || !routePlanForm.vehicleId">
+        ✓ Zaplanuj trasę
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Wynik planowania tras -->
 <div class="modal" *ngIf="showRouteResult">
   <div class="modal-content modal-xlarge">
     <h2>Wyniki planowania tras</h2>
-    
+
     <div class="planned-routes">
       <div class="planned-route" *ngFor="let route of plannedRoutes">
         <div class="route-summary">

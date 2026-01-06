@@ -1,13 +1,412 @@
 <div class="dashboard-container">
   <div class="header">
-    <h1>Panel Kierowcy</h1>
+    <div class="header-left">
+      <h1>Panel Kierowcy</h1>
+      <span class="driver-badge">🚚 Kierowca</span>
+    </div>
     <div class="user-info">
-      <span>{{ userEmail }}</span>
+      <span class="user-email">{{ userEmail }}</span>
       <button (click)="logout()" class="btn-logout">Wyloguj</button>
     </div>
   </div>
 
-  <div class="placeholder">
-    <p>Panel kierowcy - w przygotowaniu</p>
+  <!-- Statystyki -->
+  <div class="stats-bar" *ngIf="stats">
+    <div class="stat-card">
+      <span class="stat-value">{{ stats.activeRoutes }}</span>
+      <span class="stat-label">Aktywne trasy</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">{{ stats.activeOrders }}</span>
+      <span class="stat-label">Aktywne zlecenia</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">{{ stats.completedOrders }}</span>
+      <span class="stat-label">Ukończone zlecenia</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-value">{{ stats.totalDistanceKm | number:'1.0-0' }}</span>
+      <span class="stat-label">Przejechane km</span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button [class.active]="activeTab === 'active'" (click)="setActiveTab('active')">
+      🚛 Aktywne trasy
+      <span class="badge" *ngIf="activeRoutes.length > 0">{{ activeRoutes.length }}</span>
+    </button>
+    <button [class.active]="activeTab === 'orders'" (click)="setActiveTab('orders')">
+      📦 Zlecenia
+      <span class="badge" *ngIf="activeOrders.length > 0">{{ activeOrders.length }}</span>
+    </button>
+    <button [class.active]="activeTab === 'schedule'" (click)="setActiveTab('schedule')">
+      📅 Mój grafik
+    </button>
+    <button [class.active]="activeTab === 'history'" (click)="setActiveTab('history')">
+      📋 Historia
+    </button>
+  </div>
+
+  <!-- Komunikaty -->
+  <div class="alert alert-error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <div class="alert alert-success" *ngIf="successMessage">{{ successMessage }}</div>
+
+  <!-- Tab: Aktywne trasy -->
+  <div class="tab-content" *ngIf="activeTab === 'active'">
+    <div class="section" *ngIf="activeRoutes.length > 0">
+      <h2>Twoje aktywne trasy na dziś</h2>
+      <div class="routes-list">
+        <div class="route-card-large" *ngFor="let route of activeRoutes">
+          <div class="route-card-header">
+            <div class="route-main-info">
+              <span class="route-id">Trasa #{{ route.id }}</span>
+              <span class="route-date">{{ route.routeDate }}</span>
+            </div>
+            <span class="status-badge" [ngClass]="route.status.toLowerCase()">
+              {{ getRouteStatusDisplay(route.status) }}
+            </span>
+          </div>
+
+          <div class="route-card-body">
+            <div class="route-info-grid">
+              <div class="info-item">
+                <span class="info-label">Pojazd</span>
+                <span class="info-value">{{ route.vehicleRegistration }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Dystans</span>
+                <span class="info-value">{{ route.totalDistance }} km</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Czas</span>
+                <span class="info-value">{{ formatTime(route.estimatedTimeMinutes) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Zleceń</span>
+                <span class="info-value">{{ route.orders.length }}</span>
+              </div>
+            </div>
+
+            <div class="route-orders-preview">
+              <h4>Punkty do odwiedzenia:</h4>
+              <div class="orders-timeline">
+                <div class="timeline-item" *ngFor="let order of route.orders; let i = index">
+                  <span class="timeline-number">{{ i + 1 }}</span>
+                  <div class="timeline-content">
+                    <div class="timeline-pickup">
+                      <span class="icon">📦</span>
+                      <span>{{ order.pickupLocation }}</span>
+                    </div>
+                    <span class="timeline-arrow">→</span>
+                    <div class="timeline-delivery">
+                      <span class="icon">🏠</span>
+                      <span>{{ order.deliveryLocation }}</span>
+                    </div>
+                    <span class="timeline-status" [ngClass]="order.status.toLowerCase()">
+                      {{ getStatusDisplay(order.status) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="route-card-actions">
+            <button class="btn-details" (click)="openRouteDetails(route)">
+              Zobacz szczegóły
+            </button>
+            <button class="btn-start" *ngIf="route.status === 'PLANNED'" (click)="startRoute(route)"
+              [disabled]="loading">
+              ▶️ Rozpocznij trasę
+            </button>
+            <button class="btn-complete" *ngIf="route.status === 'IN_PROGRESS'" (click)="completeRoute(route)"
+              [disabled]="loading">
+              ✓ Zakończ trasę
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="empty-state" *ngIf="activeRoutes.length === 0">
+      <div class="empty-icon">🚛</div>
+      <h3>Brak aktywnych tras</h3>
+      <p>Nie masz obecnie przydzielonych tras do realizacji.</p>
+      <p class="empty-hint">Trasy zostaną przypisane przez kierownika spedycji.</p>
+    </div>
+  </div>
+
+  <!-- Tab: Zlecenia -->
+  <div class="tab-content" *ngIf="activeTab === 'orders'">
+    <div class="section" *ngIf="activeOrders.length > 0">
+      <h2>Twoje aktywne zlecenia</h2>
+      <div class="orders-grid">
+        <div class="order-card" *ngFor="let order of activeOrders" [ngClass]="order.status.toLowerCase()">
+          <div class="order-header">
+            <span class="order-id">#{{ order.id }}</span>
+            <span class="order-title">{{ order.title }}</span>
+            <span class="status-badge" [ngClass]="order.status.toLowerCase()">
+              {{ getStatusDisplay(order.status) }}
+            </span>
+          </div>
+
+          <div class="order-body">
+            <div class="order-route">
+              <div class="location pickup">
+                <span class="location-icon">📦</span>
+                <div class="location-details">
+                  <span class="location-name">{{ order.pickupLocation }}</span>
+                  <span class="location-address">{{ order.pickupAddress }}</span>
+                </div>
+              </div>
+              <div class="route-line"></div>
+              <div class="location delivery">
+                <span class="location-icon">🏠</span>
+                <div class="location-details">
+                  <span class="location-name">{{ order.deliveryLocation }}</span>
+                  <span class="location-address">{{ order.deliveryAddress }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="order-details">
+              <div class="detail-item">
+                <span class="detail-label">Data odbioru</span>
+                <span class="detail-value">{{ order.pickupDate | date:'dd.MM.yyyy' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Termin dostawy</span>
+                <span class="detail-value">{{ order.deliveryDeadline | date:'dd.MM.yyyy' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Waga</span>
+                <span class="detail-value">{{ order.cargoWeight }} kg</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Typ pojazdu</span>
+                <span class="detail-value">{{ getVehicleTypeDisplay(order.vehicleType) }}</span>
+              </div>
+            </div>
+
+            <div class="order-description" *ngIf="order.description">
+              <span class="description-label">Opis:</span>
+              <span class="description-text">{{ order.description }}</span>
+            </div>
+          </div>
+
+          <div class="order-actions">
+            <button class="btn-pickup" *ngIf="order.status === 'ASSIGNED'" (click)="pickupOrder(order)"
+              [disabled]="loading">
+              📦 Potwierdź odbiór
+            </button>
+            <button class="btn-deliver" *ngIf="order.status === 'IN_PROGRESS'" (click)="deliverOrder(order)"
+              [disabled]="loading">
+              ✓ Potwierdź dostawę
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="empty-state" *ngIf="activeOrders.length === 0">
+      <div class="empty-icon">📦</div>
+      <h3>Brak aktywnych zleceń</h3>
+      <p>Nie masz obecnie zleceń do realizacji.</p>
+    </div>
+  </div>
+
+  <!-- Tab: Grafik -->
+  <div class="tab-content" *ngIf="activeTab === 'schedule'">
+    <div class="section" *ngIf="schedule">
+      <h2>Twój grafik pracy</h2>
+      <div class="schedule-card">
+        <div class="schedule-status">
+          <span class="status-badge" [ngClass]="schedule.active ? 'active' : 'inactive'">
+            {{ schedule.active ? 'Aktywny' : 'Nieaktywny' }}
+          </span>
+        </div>
+        <div class="schedule-details">
+          <div class="schedule-row">
+            <span class="schedule-label">📧 Email:</span>
+            <span class="schedule-value">{{ schedule.driverEmail }}</span>
+          </div>
+          <div class="schedule-row">
+            <span class="schedule-label">🕒 Godziny pracy:</span>
+            <span class="schedule-value">{{ schedule.workStartTime }} - {{ schedule.workEndTime }}</span>
+          </div>
+          <div class="schedule-row">
+            <span class="schedule-label">📅 Dni pracy:</span>
+            <span class="schedule-value">{{ getWorkDaysShort(schedule.workDays) }}</span>
+          </div>
+        </div>
+        <div class="work-days-visual">
+          <div class="day-pill"
+            *ngFor="let dayKey of ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']"
+            [ngClass]="{'active': schedule.workDays.includes(dayKey)}">
+            {{ getDayLabel(dayKey).substring(0, 2) }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="empty-state" *ngIf="!schedule">
+      <div class="empty-icon">📅</div>
+      <h3>Brak grafiku</h3>
+      <p>Nie masz jeszcze przypisanego grafiku pracy.</p>
+      <p class="empty-hint">Skontaktuj się z kierownikiem spedycji.</p>
+    </div>
+  </div>
+
+  <!-- Tab: Historia -->
+  <div class="tab-content" *ngIf="activeTab === 'history'">
+    <div class="section">
+      <h2>Historia tras</h2>
+      <div class="history-table" *ngIf="allRoutes.length > 0">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Data</th>
+              <th>Pojazd</th>
+              <th>Dystans</th>
+              <th>Zleceń</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let route of allRoutes" [ngClass]="route.status.toLowerCase()">
+              <td>#{{ route.id }}</td>
+              <td>{{ route.routeDate }}</td>
+              <td>{{ route.vehicleRegistration }}</td>
+              <td>{{ route.totalDistance }} km</td>
+              <td>{{ route.orders.length }}</td>
+              <td>
+                <span class="status-badge" [ngClass]="route.status.toLowerCase()">
+                  {{ getRouteStatusDisplay(route.status) }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="empty-message" *ngIf="allRoutes.length === 0">Brak historii tras</p>
+    </div>
+
+    <div class="section">
+      <h2>Historia zleceń</h2>
+      <div class="history-table" *ngIf="allOrders.length > 0">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tytuł</th>
+              <th>Trasa</th>
+              <th>Waga</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let order of allOrders" [ngClass]="order.status.toLowerCase()">
+              <td>#{{ order.id }}</td>
+              <td>{{ order.title }}</td>
+              <td>{{ order.pickupLocation }} → {{ order.deliveryLocation }}</td>
+              <td>{{ order.cargoWeight }} kg</td>
+              <td>
+                <span class="status-badge" [ngClass]="order.status.toLowerCase()">
+                  {{ getStatusDisplay(order.status) }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="empty-message" *ngIf="allOrders.length === 0">Brak historii zleceń</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Szczegóły trasy -->
+<div class="modal" *ngIf="showRouteDetails && selectedRoute">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2>Szczegóły trasy #{{ selectedRoute.id }}</h2>
+      <button class="btn-close" (click)="closeRouteDetails()">×</button>
+    </div>
+
+    <div class="route-detail-info">
+      <div class="info-grid">
+        <div class="info-box">
+          <span class="info-label">Data</span>
+          <span class="info-value">{{ selectedRoute.routeDate }}</span>
+        </div>
+        <div class="info-box">
+          <span class="info-label">Pojazd</span>
+          <span class="info-value">{{ selectedRoute.vehicleRegistration }}</span>
+        </div>
+        <div class="info-box">
+          <span class="info-label">Dystans</span>
+          <span class="info-value">{{ selectedRoute.totalDistance }} km</span>
+        </div>
+        <div class="info-box">
+          <span class="info-label">Szac. czas</span>
+          <span class="info-value">{{ formatTime(selectedRoute.estimatedTimeMinutes) }}</span>
+        </div>
+      </div>
+      <div class="route-status-large">
+        <span class="status-badge" [ngClass]="selectedRoute.status.toLowerCase()">
+          {{ getRouteStatusDisplay(selectedRoute.status) }}
+        </span>
+      </div>
+    </div>
+
+    <div class="orders-detail-list">
+      <h3>Zlecenia w trasie ({{ selectedRoute.orders.length }})</h3>
+      <div class="order-detail-item" *ngFor="let order of selectedRoute.orders; let i = index">
+        <div class="order-number">{{ i + 1 }}</div>
+        <div class="order-detail-content">
+          <div class="order-detail-header">
+            <span class="order-title">{{ order.title || 'Zlecenie #' + order.id }}</span>
+            <span class="status-badge small" [ngClass]="order.status.toLowerCase()">
+              {{ getStatusDisplay(order.status) }}
+            </span>
+          </div>
+          <div class="order-detail-route">
+            <div class="location-line">
+              <span class="icon">📦</span>
+              <span>{{ order.pickupLocation }} - {{ order.pickupAddress }}</span>
+            </div>
+            <div class="location-line">
+              <span class="icon">🏠</span>
+              <span>{{ order.deliveryLocation }} - {{ order.deliveryAddress }}</span>
+            </div>
+          </div>
+          <div class="order-detail-meta">
+            <span>Waga: {{ order.cargoWeight }} kg</span>
+            <span>Typ: {{ getVehicleTypeDisplay(order.vehicleType) }}</span>
+          </div>
+          <div class="order-detail-actions" *ngIf="selectedRoute.status === 'IN_PROGRESS'">
+            <button class="btn-pickup btn-small" *ngIf="order.status === 'ASSIGNED'" (click)="pickupOrder(order)"
+              [disabled]="loading">
+              📦 Odbierz
+            </button>
+            <button class="btn-deliver btn-small" *ngIf="order.status === 'IN_PROGRESS'" (click)="deliverOrder(order)"
+              [disabled]="loading">
+              ✓ Dostarcz
+            </button>
+            <span class="completed-badge" *ngIf="order.status === 'COMPLETED'">✓ Dostarczone</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" (click)="closeRouteDetails()">Zamknij</button>
+      <button class="btn-start" *ngIf="selectedRoute.status === 'PLANNED'"
+        (click)="startRoute(selectedRoute); closeRouteDetails();" [disabled]="loading">
+        ▶️ Rozpocznij trasę
+      </button>
+      <button class="btn-complete" *ngIf="selectedRoute.status === 'IN_PROGRESS'"
+        (click)="completeRoute(selectedRoute); closeRouteDetails();" [disabled]="loading">
+        ✓ Zakończ trasę
+      </button>
+    </div>
   </div>
 </div>

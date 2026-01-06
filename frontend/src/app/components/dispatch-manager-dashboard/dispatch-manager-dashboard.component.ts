@@ -15,7 +15,7 @@ import { OrderResponse } from '../../services/order.service';
 export class DispatchManagerDashboardComponent implements OnInit {
   userEmail: string = '';
   activeTab: string = 'orders';
-  
+
   // Zlecenia
   // Zlecenia
   pendingOrders: OrderResponse[] = [];
@@ -23,10 +23,10 @@ export class DispatchManagerDashboardComponent implements OnInit {
   filteredConfirmedOrders: OrderResponse[] = [];
   selectedOrders: Set<number> = new Set();
   pickupDateFilter: string = '';
-  
+
   // Kierowcy
   drivers: DriverResponse[] = [];
-  
+
   // Pojazdy
   vehicles: VehicleResponse[] = [];
   showVehicleDialog = false;
@@ -40,14 +40,14 @@ export class DispatchManagerDashboardComponent implements OnInit {
     available: true,
     notes: ''
   };
-  
+
   // Grafiki
   schedules: DriverScheduleResponse[] = [];
   showScheduleDialog = false;
   editingSchedule: DriverScheduleResponse | null = null;
   scheduleForm: DriverScheduleRequest = {
     driverId: 0,
-    vehicleId: null,
+    // vehicleId usunięte - pojazd przypisywany do trasy
     workDays: [],
     workStartTime: '08:00',
     workEndTime: '16:00',
@@ -62,12 +62,22 @@ export class DispatchManagerDashboardComponent implements OnInit {
     'SATURDAY': false,
     'SUNDAY': false
   };
-  
+
   // Trasy
   routes: RouteResponse[] = [];
   plannedRoutes: RouteResponse[] = [];
   showRouteResult = false;
-  
+  showRoutePlanDialog = false;
+
+  // Formularz planowania trasy
+  routePlanForm = {
+    routeDate: '',
+    driverId: 0,
+    vehicleId: 0
+  };
+  availableDriversForDate: DriverResponse[] = [];
+  availableVehiclesForDate: VehicleResponse[] = [];
+
   // Komunikaty
   errorMessage = '';
   successMessage = '';
@@ -291,16 +301,15 @@ export class DispatchManagerDashboardComponent implements OnInit {
 
   openScheduleDialog(schedule?: DriverScheduleResponse): void {
     this.editingSchedule = schedule || null;
-    
+
     // Reset dni pracy
     Object.keys(this.selectedWorkDays).forEach(key => {
       this.selectedWorkDays[key] = false;
     });
-    
+
     if (schedule) {
       this.scheduleForm = {
         driverId: schedule.driverId,
-        vehicleId: schedule.vehicleId,
         workDays: schedule.workDays,
         workStartTime: schedule.workStartTime,
         workEndTime: schedule.workEndTime,
@@ -312,7 +321,6 @@ export class DispatchManagerDashboardComponent implements OnInit {
     } else {
       this.scheduleForm = {
         driverId: this.drivers.length > 0 ? this.drivers[0].id : 0,
-        vehicleId: null,
         workDays: [],
         workStartTime: '08:00',
         workEndTime: '16:00',
@@ -392,26 +400,98 @@ export class DispatchManagerDashboardComponent implements OnInit {
 
   // ========== PLANOWANIE TRAS ==========
 
-  planRoutes(): void {
+  openRoutePlanDialog(): void {
     if (this.selectedOrders.size === 0) {
       this.errorMessage = 'Wybierz przynajmniej jedno zlecenie do zaplanowania';
       return;
     }
 
-    const orderIds = Array.from(this.selectedOrders);
-    
-    this.dispatchService.planRoutes(orderIds).subscribe({
-      next: (routes) => {
-        this.plannedRoutes = routes;
+    // Ustaw domyślną datę na jutro
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    this.routePlanForm = {
+      routeDate: tomorrow.toISOString().split('T')[0],
+      driverId: 0,
+      vehicleId: 0
+    };
+    this.availableDriversForDate = [];
+    this.availableVehiclesForDate = [];
+    this.showRoutePlanDialog = true;
+
+    // Załaduj dostępnych dla daty
+    this.loadAvailableResourcesForDate();
+  }
+
+  closeRoutePlanDialog(): void {
+    this.showRoutePlanDialog = false;
+  }
+
+  onRouteDateChange(): void {
+    // Resetuj wybór kierowcy i pojazdu
+    this.routePlanForm.driverId = 0;
+    this.routePlanForm.vehicleId = 0;
+    // Załaduj dostępnych dla nowej daty
+    this.loadAvailableResourcesForDate();
+  }
+
+  loadAvailableResourcesForDate(): void {
+    if (!this.routePlanForm.routeDate) return;
+
+    this.dispatchService.getAvailableDriversForDate(this.routePlanForm.routeDate).subscribe({
+      next: (drivers: DriverResponse[]) => {
+        this.availableDriversForDate = drivers;
+        if (drivers.length > 0) {
+          this.routePlanForm.driverId = drivers[0].id;
+        }
+      },
+      error: (err: any) => console.error('Error loading available drivers:', err)
+    });
+
+    this.dispatchService.getAvailableVehiclesForDate(this.routePlanForm.routeDate).subscribe({
+      next: (vehicles: VehicleResponse[]) => {
+        this.availableVehiclesForDate = vehicles;
+        if (vehicles.length > 0) {
+          this.routePlanForm.vehicleId = vehicles[0].id;
+        }
+      },
+      error: (err: any) => console.error('Error loading available vehicles:', err)
+    });
+  }
+
+  planRoute(): void {
+    if (!this.routePlanForm.routeDate) {
+      this.errorMessage = 'Wybierz datę trasy';
+      return;
+    }
+    if (!this.routePlanForm.driverId) {
+      this.errorMessage = 'Wybierz kierowcę';
+      return;
+    }
+    if (!this.routePlanForm.vehicleId) {
+      this.errorMessage = 'Wybierz pojazd';
+      return;
+    }
+
+    const request = {
+      routeDate: this.routePlanForm.routeDate,
+      driverId: this.routePlanForm.driverId,
+      vehicleId: this.routePlanForm.vehicleId,
+      orderIds: Array.from(this.selectedOrders)
+    };
+
+    this.dispatchService.planRoute(request).subscribe({
+      next: (route: RouteResponse) => {
+        this.plannedRoutes = [route];
+        this.showRoutePlanDialog = false;
         this.showRouteResult = true;
-        this.successMessage = `Zaplanowano ${routes.length} tras`;
+        this.successMessage = `Zaplanowano trasę #${route.id} na ${route.routeDate}`;
         this.selectedOrders.clear();
         this.loadOrders();
         this.loadRoutes();
         setTimeout(() => this.successMessage = '', 5000);
       },
-      error: (err) => {
-        this.errorMessage = err.error?.message || 'Błąd podczas planowania tras';
+      error: (err: any) => {
+        this.errorMessage = err.error?.message || 'Błąd podczas planowania trasy';
       }
     });
   }

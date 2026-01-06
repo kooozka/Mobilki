@@ -13,5 +13,5 @@ public class DriverResponse {
     private Long id;
     private String email;
     private Boolean hasActiveSchedule;
-    private String assignedVehicle;
+    // assignedVehicle usunięte - pojazd przypisywany do trasy
 }

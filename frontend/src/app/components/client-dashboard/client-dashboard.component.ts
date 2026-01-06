@@ -26,7 +26,7 @@ export class ClientDashboardComponent implements OnInit {
     private orderService: OrderService,
     private authService: AuthService,
     private router: Router
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     const user = this.authService.getCurrentUser();
@@ -68,7 +68,7 @@ export class ClientDashboardComponent implements OnInit {
   }
 
   getStatusDisplay(status: string): string {
-    const map: {[key: string]: string} = {
+    const map: { [key: string]: string } = {
       'PENDING': 'Oczekujące',
       'CONFIRMED': 'Potwierdzone',
       'ASSIGNED': 'Przypisane',
@@ -77,6 +77,16 @@ export class ClientDashboardComponent implements OnInit {
       'CANCELLED': 'Anulowane'
     };
     return map[status] || status;
+  }
+
+  getVehicleTypeDisplay(type: string): string {
+    const map: { [key: string]: string } = {
+      'SMALL_VAN': 'Mały van',
+      'MEDIUM_TRUCK': 'Średnia ciężarówka',
+      'LARGE_TRUCK': 'Duża ciężarówka',
+      'SEMI_TRUCK': 'Naczepa'
+    };
+    return map[type] || type;
   }
 
   logout(): void {
