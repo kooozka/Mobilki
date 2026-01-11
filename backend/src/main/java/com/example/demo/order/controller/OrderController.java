@@ -1,5 +1,6 @@
 package com.example.demo.order.controller;
 
+import com.example.demo.dispatch.service.GoogleMapsService;
 import com.example.demo.order.dto.CancelOrderRequest;
 import com.example.demo.order.dto.CreateOrderRequest;
 import com.example.demo.order.dto.OrderResponse;
@@ -7,6 +8,7 @@ import com.example.demo.order.model.VehicleType;
 import com.example.demo.order.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 public class OrderController {
 
     private final OrderService orderService;
+    private final GoogleMapsService googleMapsService;
 
     @Data
     @AllArgsConstructor
@@ -31,14 +34,45 @@ public class OrderController {
         private String message;
     }
 
+    @Data
+    @Builder
+    @AllArgsConstructor
+    static class AddressValidationResponse {
+        private boolean valid;
+        private String formattedAddress;
+        private String placeName;
+        private double latitude;
+        private double longitude;
+        private String errorMessage;
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
         String errorMessage = ex.getBindingResult().getFieldErrors().stream()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .collect(Collectors.joining(", "));
-        
+
         return ResponseEntity.badRequest().body(new ErrorResponse(errorMessage));
     }
+
+    // ========== WALIDACJA ADRESÓW ==========
+
+    @GetMapping("/validate-address")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<AddressValidationResponse> validateAddress(@RequestParam String address) {
+        GoogleMapsService.AddressValidationResult result = googleMapsService.geocodeAddress(address);
+
+        return ResponseEntity.ok(AddressValidationResponse.builder()
+                .valid(result.isValid())
+                .formattedAddress(result.getFormattedAddress())
+                .placeName(result.getPlaceName())
+                .latitude(result.getLatitude())
+                .longitude(result.getLongitude())
+                .errorMessage(result.getErrorMessage())
+                .build());
+    }
+
+    // ========== ZLECENIA ==========
 
     @PostMapping
     @PreAuthorize("hasRole('CLIENT')")

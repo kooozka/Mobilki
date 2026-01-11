@@ -501,6 +501,64 @@ export class DispatchManagerDashboardComponent implements OnInit {
     this.plannedRoutes = [];
   }
 
+  // ========== AUTO-PLANOWANIE ==========
+
+  showAutoPlanDialog = false;
+  autoPlanDate = '';
+  autoPlanLoading = false;
+
+  openAutoPlanDialog(): void {
+    if (this.selectedOrders.size === 0) {
+      this.errorMessage = 'Wybierz co najmniej jedno zlecenie do auto-planowania';
+      return;
+    }
+
+    // Ustaw domyślną datę na jutro
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    this.autoPlanDate = tomorrow.toISOString().split('T')[0];
+    this.showAutoPlanDialog = true;
+  }
+
+  closeAutoPlanDialog(): void {
+    this.showAutoPlanDialog = false;
+    this.autoPlanDate = '';
+  }
+
+  autoPlanRoutes(): void {
+    if (!this.autoPlanDate) {
+      this.errorMessage = 'Wybierz datę trasy';
+      return;
+    }
+
+    this.autoPlanLoading = true;
+    const orderIds = Array.from(this.selectedOrders);
+
+    this.dispatchService.autoPlanRoutes(orderIds, this.autoPlanDate).subscribe({
+      next: (routes: RouteResponse[]) => {
+        this.autoPlanLoading = false;
+        this.showAutoPlanDialog = false;
+
+        if (routes.length > 0) {
+          this.plannedRoutes = routes;
+          this.showRouteResult = true;
+          this.successMessage = `Automatycznie zaplanowano ${routes.length} tras dla ${orderIds.length} zleceń`;
+        } else {
+          this.errorMessage = 'Nie udało się zaplanować tras - brak dostępnych zasobów';
+        }
+
+        this.selectedOrders.clear();
+        this.loadOrders();
+        this.loadRoutes();
+        setTimeout(() => this.successMessage = '', 5000);
+      },
+      error: (err: any) => {
+        this.autoPlanLoading = false;
+        this.errorMessage = err.error?.message || 'Błąd podczas auto-planowania tras';
+      }
+    });
+  }
+
   cancelRoute(route: RouteResponse): void {
     if (confirm(`Czy na pewno chcesz anulować trasę #${route.id}? Zlecenia zostaną przywrócone do planowania.`)) {
       this.dispatchService.cancelRoute(route.id).subscribe({
@@ -569,6 +627,42 @@ export class DispatchManagerDashboardComponent implements OnInit {
   clearMessages(): void {
     this.errorMessage = '';
     this.successMessage = '';
+  }
+
+  // ========== FILTROWANIE POJAZDÓW ==========
+
+  /**
+   * Oblicza maksymalną wagę spośród wybranych zleceń.
+   * Jedno zlecenie na raz = potrzebujemy pojazdu który pomieści najcięższe zlecenie.
+   */
+  getMaxSelectedOrderWeight(): number {
+    if (this.selectedOrders.size === 0) return 0;
+
+    let maxWeight = 0;
+    for (const orderId of this.selectedOrders) {
+      const order = this.confirmedOrders.find(o => o.id === orderId);
+      if (order && order.cargoWeight > maxWeight) {
+        maxWeight = order.cargoWeight;
+      }
+    }
+    return maxWeight;
+  }
+
+  /**
+   * Sprawdza czy pojazd ma wystarczającą ładowność dla wybranych zleceń.
+   */
+  isVehicleSuitable(vehicle: VehicleResponse): boolean {
+    const maxOrderWeight = this.getMaxSelectedOrderWeight();
+    return vehicle.maxWeight >= maxOrderWeight;
+  }
+
+  /**
+   * Zwraca opis wymaganej ładowności.
+   */
+  getRequiredCapacityInfo(): string {
+    const maxWeight = this.getMaxSelectedOrderWeight();
+    if (maxWeight === 0) return '';
+    return `Wymagana ładowność: min. ${maxWeight} kg`;
   }
 
   logout(): void {

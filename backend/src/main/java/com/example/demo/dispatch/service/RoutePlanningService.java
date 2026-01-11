@@ -37,6 +37,7 @@ public class RoutePlanningService {
     private final UserRepository userRepository;
     private final VehicleRepository vehicleRepository;
     private final DriverScheduleRepository scheduleRepository;
+    private final GoogleMapsService googleMapsService;
 
     // Średnia prędkość pojazdu w km/h
     private static final double AVERAGE_SPEED_KMH = 50.0;
@@ -321,35 +322,30 @@ public class RoutePlanningService {
         return nearest;
     }
 
+    /**
+     * Oblicza odległość między dwoma lokalizacjami używając Google Maps API.
+     */
     private double calculateDistance(String location1, String location2) {
-        if (location1.equalsIgnoreCase(location2)) {
-            return 5.0;
-        }
-
-        long hash1 = Math.abs((long) location1.toLowerCase().hashCode());
-        long hash2 = Math.abs((long) location2.toLowerCase().hashCode());
-
-        double baseDistance = ((hash1 + hash2) % 190) + 10;
-        return Math.round(baseDistance * 10.0) / 10.0;
+        GoogleMapsService.DistanceResult result = googleMapsService.getDistance(location1, location2);
+        return result.getDistanceKm();
     }
 
+    /**
+     * Oblicza całkowity dystans trasy używając Google Maps API.
+     */
     private double calculateTotalDistance(List<Order> orders) {
-        if (orders.isEmpty())
+        if (orders.isEmpty()) {
             return 0;
-
-        double total = 0;
-
-        for (int i = 0; i < orders.size(); i++) {
-            Order order = orders.get(i);
-            total += calculateDistance(order.getPickupLocation(), order.getDeliveryLocation());
-
-            if (i < orders.size() - 1) {
-                Order next = orders.get(i + 1);
-                total += calculateDistance(order.getDeliveryLocation(), next.getPickupLocation());
-            }
         }
 
-        return Math.round(total * 10.0) / 10.0;
+        // Zbuduj listę wszystkich punktów (pickup i delivery)
+        List<String> waypoints = new ArrayList<>();
+        for (Order order : orders) {
+            waypoints.add(order.getPickupLocation());
+            waypoints.add(order.getDeliveryLocation());
+        }
+
+        return googleMapsService.calculateTotalRouteDistance(waypoints);
     }
 
     private int calculateEstimatedTime(double distanceKm, int numberOfStops) {

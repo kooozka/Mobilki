@@ -1,5 +1,6 @@
 package com.example.demo.order.service;
 
+import com.example.demo.dispatch.service.GoogleMapsService;
 import com.example.demo.order.dto.CancelOrderRequest;
 import com.example.demo.order.dto.CreateOrderRequest;
 import com.example.demo.order.dto.OrderResponse;
@@ -10,6 +11,7 @@ import com.example.demo.order.model.VehicleType;
 import com.example.demo.order.repository.OrderRepository;
 import com.example.demo.security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -20,12 +22,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderService {
 
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final GoogleMapsService googleMapsService;
 
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -43,6 +47,9 @@ public class OrderService {
             throw new RuntimeException("Maksymalna waga ładunku to 25000 kg");
         }
 
+        // Walidacja adresów przez Google Maps
+        validateAddresses(request.getPickupLocation(), request.getDeliveryLocation());
+
         // Automatyczne przypisanie najmniejszego możliwego pojazdu na podstawie wagi
         VehicleType vehicleType = determineVehicleType(request.getCargoWeight());
 
@@ -50,9 +57,9 @@ public class OrderService {
         LocalDate tomorrow = LocalDate.now().plusDays(1);
         if (request.getPickupDate().isBefore(tomorrow)) {
             throw new RuntimeException("Data odbioru nie może być wcześniejsza niż jutro. " +
-                "Najwcześniejsza możliwa data: " + tomorrow);
+                    "Najwcześniejsza możliwa data: " + tomorrow);
         }
-        
+
         if (request.getPickupDate().isAfter(request.getDeliveryDeadline())) {
             throw new RuntimeException("Data odbioru nie może być późniejsza niż termin dostawy");
         }
@@ -116,7 +123,8 @@ public class OrderService {
             throw new RuntimeException("Zlecenie jest już anulowane");
         }
         if (order.getStatus() == OrderStatus.IN_PROGRESS) {
-            throw new RuntimeException("Nie można anulować zlecenia - jest w trakcie realizacji. Skontaktuj się z dyspozytorem.");
+            throw new RuntimeException(
+                    "Nie można anulować zlecenia - jest w trakcie realizacji. Skontaktuj się z dyspozytorem.");
         }
 
         order.setStatus(OrderStatus.CANCELLED);
@@ -148,6 +156,9 @@ public class OrderService {
             throw new RuntimeException("Maksymalna waga ładunku to 25000 kg");
         }
 
+        // Walidacja adresów przez Google Maps
+        validateAddresses(request.getPickupLocation(), request.getDeliveryLocation());
+
         // Automatyczne przypisanie najmniejszego możliwego pojazdu na podstawie wagi
         VehicleType vehicleType = determineVehicleType(request.getCargoWeight());
 
@@ -155,9 +166,9 @@ public class OrderService {
         LocalDate tomorrow = LocalDate.now().plusDays(1);
         if (request.getPickupDate().isBefore(tomorrow)) {
             throw new RuntimeException("Data odbioru nie może być wcześniejsza niż jutro. " +
-                "Najwcześniejsza możliwa data: " + tomorrow);
+                    "Najwcześniejsza możliwa data: " + tomorrow);
         }
-        
+
         if (request.getPickupDate().isAfter(request.getDeliveryDeadline())) {
             throw new RuntimeException("Data odbioru nie może być późniejsza niż termin dostawy");
         }
@@ -189,6 +200,29 @@ public class OrderService {
         }
         // Jeśli waga przekracza wszystkie pojazdy, zwróć największy
         return VehicleType.SEMI_TRUCK;
+    }
+
+    /**
+     * Waliduje adresy odbioru i dostawy przez Google Maps Geocoding API.
+     */
+    private void validateAddresses(String pickupLocation, String deliveryLocation) {
+        // Walidacja adresu odbioru
+        GoogleMapsService.AddressValidationResult pickupResult = googleMapsService.geocodeAddress(pickupLocation);
+        if (!pickupResult.isValid()) {
+            log.warn("Invalid pickup address: {} - {}", pickupLocation, pickupResult.getErrorMessage());
+            throw new RuntimeException("Nieprawidłowy adres odbioru: " + pickupLocation +
+                    ". " + pickupResult.getErrorMessage());
+        }
+        log.info("Pickup address validated: {} -> {}", pickupLocation, pickupResult.getFormattedAddress());
+
+        // Walidacja adresu dostawy
+        GoogleMapsService.AddressValidationResult deliveryResult = googleMapsService.geocodeAddress(deliveryLocation);
+        if (!deliveryResult.isValid()) {
+            log.warn("Invalid delivery address: {} - {}", deliveryLocation, deliveryResult.getErrorMessage());
+            throw new RuntimeException("Nieprawidłowy adres dostawy: " + deliveryLocation +
+                    ". " + deliveryResult.getErrorMessage());
+        }
+        log.info("Delivery address validated: {} -> {}", deliveryLocation, deliveryResult.getFormattedAddress());
     }
 
     private OrderResponse mapToResponse(Order order) {

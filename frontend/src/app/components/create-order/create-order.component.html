@@ -9,7 +9,8 @@
       <h2>Nazwa zlecenia</h2>
       <div class="form-group full-width">
         <label>Nazwa / tytuł zlecenia</label>
-        <input type="text" [(ngModel)]="orderData.title" name="title" required placeholder="np. Transport mebli do Krakowa">
+        <input type="text" [(ngModel)]="orderData.title" name="title" required
+          placeholder="np. Transport mebli do Krakowa">
       </div>
     </div>
 
@@ -17,12 +18,26 @@
       <h2>Miejsce odbioru</h2>
       <div class="form-row">
         <div class="form-group">
-          <label>Lokalizacja (miasto)</label>
-          <input type="text" [(ngModel)]="orderData.pickupLocation" name="pickupLocation" required>
+          <label>Lokalizacja (miasto) *</label>
+          <div class="input-with-validation">
+            <input type="text" [(ngModel)]="orderData.pickupLocation" name="pickupLocation" required
+              (ngModelChange)="onPickupLocationChange()" [class.valid]="pickupValidation?.valid"
+              [class.invalid]="pickupValidation && !pickupValidation.valid" placeholder="np. Wrocław">
+            <span class="validation-icon" *ngIf="pickupValidating">⏳</span>
+            <span class="validation-icon valid" *ngIf="pickupValidation?.valid">✓</span>
+            <span class="validation-icon invalid" *ngIf="pickupValidation && !pickupValidation.valid">✗</span>
+          </div>
+          <small class="validation-hint valid" *ngIf="pickupValidation?.valid">
+            ✓ {{ pickupValidation?.formattedAddress }}
+          </small>
+          <small class="validation-hint invalid" *ngIf="pickupValidation && !pickupValidation.valid">
+            ✗ Nie rozpoznano lokalizacji
+          </small>
         </div>
         <div class="form-group full-width">
           <label>Adres</label>
-          <input type="text" [(ngModel)]="orderData.pickupAddress" name="pickupAddress" required>
+          <input type="text" [(ngModel)]="orderData.pickupAddress" name="pickupAddress" required
+            placeholder="np. ul. Rynek 1">
         </div>
       </div>
       <div class="form-row">
@@ -37,12 +52,26 @@
       <h2>Miejsce dostawy</h2>
       <div class="form-row">
         <div class="form-group">
-          <label>Lokalizacja (miasto)</label>
-          <input type="text" [(ngModel)]="orderData.deliveryLocation" name="deliveryLocation" required>
+          <label>Lokalizacja (miasto) *</label>
+          <div class="input-with-validation">
+            <input type="text" [(ngModel)]="orderData.deliveryLocation" name="deliveryLocation" required
+              (ngModelChange)="onDeliveryLocationChange()" [class.valid]="deliveryValidation?.valid"
+              [class.invalid]="deliveryValidation && !deliveryValidation.valid" placeholder="np. Kraków">
+            <span class="validation-icon" *ngIf="deliveryValidating">⏳</span>
+            <span class="validation-icon valid" *ngIf="deliveryValidation?.valid">✓</span>
+            <span class="validation-icon invalid" *ngIf="deliveryValidation && !deliveryValidation.valid">✗</span>
+          </div>
+          <small class="validation-hint valid" *ngIf="deliveryValidation?.valid">
+            ✓ {{ deliveryValidation?.formattedAddress }}
+          </small>
+          <small class="validation-hint invalid" *ngIf="deliveryValidation && !deliveryValidation.valid">
+            ✗ Nie rozpoznano lokalizacji
+          </small>
         </div>
         <div class="form-group full-width">
           <label>Adres</label>
-          <input type="text" [(ngModel)]="orderData.deliveryAddress" name="deliveryAddress" required>
+          <input type="text" [(ngModel)]="orderData.deliveryAddress" name="deliveryAddress" required
+            placeholder="np. ul. Główna 10">
         </div>
       </div>
       <div class="form-row">
@@ -59,18 +88,21 @@
         <div class="form-group">
           <label>Waga ładunku (kg)</label>
           <input type="number" [(ngModel)]="orderData.cargoWeight" name="cargoWeight" min="1" max="25000" required>
-          <small class="hint">Maksymalna waga: 25000 kg.</small>
+          <small class="hint">Maksymalna waga: 25000 kg. System automatycznie dobierze odpowiedni pojazd.</small>
         </div>
       </div>
       <div class="form-group full-width">
         <label>Opis (opcjonalny)</label>
-        <textarea [(ngModel)]="orderData.description" name="description" rows="4"></textarea>
+        <textarea [(ngModel)]="orderData.description" name="description" rows="4"
+          placeholder="Dodatkowe informacje o ładunku..."></textarea>
       </div>
     </div>
 
     <div class="form-actions">
       <button type="button" (click)="cancel()" class="btn-secondary">Anuluj</button>
-      <button type="submit" class="btn-primary">Utwórz zlecenie</button>
+      <button type="submit" class="btn-primary" [disabled]="isSubmitting">
+        {{ isSubmitting ? 'Tworzenie...' : 'Utwórz zlecenie' }}
+      </button>
     </div>
   </form>
 </div>

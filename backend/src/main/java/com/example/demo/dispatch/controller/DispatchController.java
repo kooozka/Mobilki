@@ -1,6 +1,7 @@
 package com.example.demo.dispatch.controller;
 
 import com.example.demo.dispatch.dto.*;
+import com.example.demo.dispatch.service.AutoPlanningService;
 import com.example.demo.dispatch.service.DriverScheduleService;
 import com.example.demo.dispatch.service.RoutePlanningService;
 import com.example.demo.dispatch.service.VehicleService;
@@ -25,6 +26,7 @@ public class DispatchController {
     private final RoutePlanningService routePlanningService;
     private final DriverScheduleService driverScheduleService;
     private final VehicleService vehicleService;
+    private final AutoPlanningService autoPlanningService;
 
     @Data
     @AllArgsConstructor
@@ -259,5 +261,25 @@ public class DispatchController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }
+    }
+
+    // ========== AUTO-PLANOWANIE ==========
+
+    @PostMapping("/routes/auto-plan")
+    public ResponseEntity<?> autoPlanRoutes(@RequestBody AutoPlanRequest request) {
+        try {
+            List<RouteResponse> routes = autoPlanningService.autoPlanRoutes(
+                    request.getOrderIds(),
+                    request.getRouteDate());
+            return ResponseEntity.ok(routes);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @Data
+    static class AutoPlanRequest {
+        private List<Long> orderIds;
+        private LocalDate routeDate;
     }
 }

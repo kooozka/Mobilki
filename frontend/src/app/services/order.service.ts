@@ -44,6 +44,15 @@ export interface VehicleType {
   maxWeight: number;
 }
 
+export interface AddressValidationResponse {
+  valid: boolean;
+  formattedAddress: string | null;
+  placeName: string | null;
+  latitude: number;
+  longitude: number;
+  errorMessage: string | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -51,6 +60,16 @@ export class OrderService {
   private apiUrl = 'http://localhost:8080/api/orders';
 
   constructor(private http: HttpClient) { }
+
+  // ========== WALIDACJA ADRESÓW ==========
+
+  validateAddress(address: string): Observable<AddressValidationResponse> {
+    return this.http.get<AddressValidationResponse>(`${this.apiUrl}/validate-address`, {
+      params: { address }
+    });
+  }
+
+  // ========== ZLECENIA ==========
 
   createOrder(request: CreateOrderRequest): Observable<OrderResponse> {
     return this.http.post<OrderResponse>(this.apiUrl, request);
@@ -87,3 +106,4 @@ export class OrderService {
     return map[type] || type;
   }
 }
+

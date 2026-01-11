@@ -191,4 +191,14 @@ export class DispatchService {
   cancelRoute(id: number): Observable<RouteResponse> {
     return this.http.put<RouteResponse>(`${this.apiUrl}/routes/${id}/cancel`, {});
   }
+
+  // ========== AUTO-PLANOWANIE ==========
+
+  autoPlanRoutes(orderIds: number[], routeDate: string): Observable<RouteResponse[]> {
+    return this.http.post<RouteResponse[]>(`${this.apiUrl}/routes/auto-plan`, {
+      orderIds,
+      routeDate
+    });
+  }
 }
+
