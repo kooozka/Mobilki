@@ -34,7 +34,7 @@ public class OrderService {
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
-        return userRepository.findByEmail(email)
+        return userRepository.findByEmailAndSuspendedIsFalse(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
@@ -225,12 +225,12 @@ public class OrderService {
         log.info("Delivery address validated: {} -> {}", deliveryLocation, deliveryResult.getFormattedAddress());
     }
 
-    private OrderResponse mapToResponse(Order order) {
+    public OrderResponse mapToResponse(Order order) {
         return OrderResponse.builder()
                 .id(order.getId())
                 .title(order.getTitle())
                 .clientEmail(order.getClient().getEmail())
-                .driverEmail(order.getDriver() != null ? order.getDriver().getEmail() : null)
+                .driverEmail(order.getDriver() != null ? order.getDriver().getUser().getEmail() : null)
                 .pickupLocation(order.getPickupLocation())
                 .pickupAddress(order.getPickupAddress())
                 .pickupDate(order.getPickupDate())

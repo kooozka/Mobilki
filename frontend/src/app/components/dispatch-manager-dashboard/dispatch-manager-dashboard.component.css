@@ -871,3 +871,91 @@ tr.selected {
   color: #16a34a;
   margin-top: 8px;
 }
+
+/* Pending Auto Plannings */
+.pending-plannings {
+  margin-bottom: 20px;
+}
+
+.pending-plannings h3 {
+  margin: 0 0 15px 0;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.planning-card {
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  background: #eff6ff;
+  color: #1e40af;
+  border-left: 4px solid #3b82f6;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #3b82f6;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.planning-info span {
+  font-weight: 500;
+}
+
+/* Auto Planning Events */
+.planning-events {
+  margin-bottom: 20px;
+}
+
+.planning-events h3 {
+  margin: 0 0 15px 0;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.event-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.event-info span {
+  font-weight: 500;
+}
+
+.btn-tick {
+  background: #6b7280;
+  opacity: 30%;
+  color: white;
+  border: none;
+  border-radius: 100%;
+  width: 25px;
+  height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+.btn-tick:hover {
+  background: #4b5563;
+}

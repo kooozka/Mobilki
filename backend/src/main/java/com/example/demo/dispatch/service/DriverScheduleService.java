@@ -3,7 +3,9 @@ package com.example.demo.dispatch.service;
 import com.example.demo.dispatch.dto.DriverResponse;
 import com.example.demo.dispatch.dto.DriverScheduleRequest;
 import com.example.demo.dispatch.dto.DriverScheduleResponse;
+import com.example.demo.dispatch.model.Driver;
 import com.example.demo.dispatch.model.DriverSchedule;
+import com.example.demo.dispatch.repository.DriverRepository;
 import com.example.demo.dispatch.repository.DriverScheduleRepository;
 import com.example.demo.security.model.User;
 import com.example.demo.security.model.UserRole;
@@ -21,9 +23,10 @@ public class DriverScheduleService {
 
     private final DriverScheduleRepository scheduleRepository;
     private final UserRepository userRepository;
+    private final DriverRepository driverRepository;
 
     public List<DriverResponse> getAllDrivers() {
-        return userRepository.findByRole(UserRole.DRIVER).stream()
+        return driverRepository.findAll().stream()
                 .map(this::mapToDriverResponse)
                 .collect(Collectors.toList());
     }
@@ -47,7 +50,7 @@ public class DriverScheduleService {
     }
 
     public DriverScheduleResponse getScheduleByDriver(Long driverId) {
-        User driver = userRepository.findById(driverId)
+        Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono kierowcy o ID: " + driverId));
 
         DriverSchedule schedule = scheduleRepository.findByDriverAndActiveTrue(driver)
@@ -58,12 +61,8 @@ public class DriverScheduleService {
 
     @Transactional
     public DriverScheduleResponse createSchedule(DriverScheduleRequest request) {
-        User driver = userRepository.findById(request.getDriverId())
+        Driver driver = driverRepository.findById(request.getDriverId())
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono kierowcy o ID: " + request.getDriverId()));
-
-        if (driver.getRole() != UserRole.DRIVER) {
-            throw new RuntimeException("Użytkownik nie jest kierowcą");
-        }
 
         // Dezaktywuj poprzedni aktywny grafik
         scheduleRepository.findByDriverAndActiveTrue(driver)
@@ -108,11 +107,11 @@ public class DriverScheduleService {
         scheduleRepository.deleteById(id);
     }
 
-    private DriverResponse mapToDriverResponse(User driver) {
+    private DriverResponse mapToDriverResponse(Driver driver) {
         var schedule = scheduleRepository.findByDriverAndActiveTrue(driver);
         return DriverResponse.builder()
                 .id(driver.getId())
-                .email(driver.getEmail())
+                .email(driver.getUser().getEmail())
                 .hasActiveSchedule(schedule.isPresent())
                 .build();
     }
@@ -121,7 +120,7 @@ public class DriverScheduleService {
         return DriverScheduleResponse.builder()
                 .id(schedule.getId())
                 .driverId(schedule.getDriver().getId())
-                .driverEmail(schedule.getDriver().getEmail())
+                .driverEmail(schedule.getDriver().getUser().getEmail())
                 .workDays(schedule.getWorkDays())
                 .workStartTime(schedule.getWorkStartTime())
                 .workEndTime(schedule.getWorkEndTime())

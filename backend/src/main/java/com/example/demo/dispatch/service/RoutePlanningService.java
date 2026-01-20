@@ -1,11 +1,11 @@
 package com.example.demo.dispatch.service;
 
+import com.example.demo.dispatch.dto.AutoPlanRoute;
 import com.example.demo.dispatch.dto.PlanRouteRequest;
 import com.example.demo.dispatch.dto.RouteResponse;
-import com.example.demo.dispatch.model.DriverSchedule;
-import com.example.demo.dispatch.model.Route;
-import com.example.demo.dispatch.model.RouteStatus;
-import com.example.demo.dispatch.model.Vehicle;
+import com.example.demo.dispatch.model.*;
+import com.example.demo.dispatch.model.json.AutoPlanningRoute;
+import com.example.demo.dispatch.repository.DriverRepository;
 import com.example.demo.dispatch.repository.DriverScheduleRepository;
 import com.example.demo.dispatch.repository.RouteRepository;
 import com.example.demo.dispatch.repository.VehicleRepository;
@@ -19,6 +19,7 @@ import com.example.demo.security.model.UserRole;
 import com.example.demo.security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,9 +36,13 @@ public class RoutePlanningService {
     private final OrderRepository orderRepository;
     private final RouteRepository routeRepository;
     private final UserRepository userRepository;
+    private final DriverRepository driverRepository;
     private final VehicleRepository vehicleRepository;
     private final DriverScheduleRepository scheduleRepository;
     private final GoogleMapsService googleMapsService;
+
+    @Value("${vehicle.base.address}")
+    private String vehicleBaseAddress;
 
     // Średnia prędkość pojazdu w km/h
     private static final double AVERAGE_SPEED_KMH = 50.0;
@@ -91,12 +96,8 @@ public class RoutePlanningService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono zlecenia o ID: " + orderId));
 
-        User driver = userRepository.findById(driverId)
+        Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono kierowcy o ID: " + driverId));
-
-        if (driver.getRole() != UserRole.DRIVER) {
-            throw new RuntimeException("Użytkownik nie jest kierowcą");
-        }
 
         if (order.getStatus() == OrderStatus.CANCELLED || order.getStatus() == OrderStatus.COMPLETED) {
             throw new RuntimeException("Nie można przypisać anulowanego lub zakończonego zlecenia");
@@ -114,7 +115,7 @@ public class RoutePlanningService {
     /**
      * Zwraca kierowców dostępnych w danym dniu (mają grafik i nie mają trasy)
      */
-    public List<User> getAvailableDriversForDate(LocalDate date) {
+    public List<Driver> getAvailableDriversForDate(LocalDate date) {
         DayOfWeek dayOfWeek = date.getDayOfWeek();
 
         // Znajdź kierowców z aktywnym grafikiem na dany dzień
@@ -161,6 +162,102 @@ public class RoutePlanningService {
     // ========== PLANOWANIE TRASY ==========
 
     /**
+     * Wprowadza trasę z automatycznego planowania
+     */
+    @Transactional
+    protected List<RouteResponse> createRouteFromAutoPlanning(AutoPlanning autoPlanning) {
+        List<RouteResponse> createdRoutes = new ArrayList<>();
+
+        for (AutoPlanningRoute autoRoute : autoPlanning.getResult().getRoutes()) {
+            LocalDate routeDate = autoPlanning.getPlanningDate();
+            DayOfWeek dayOfWeek = routeDate.getDayOfWeek();
+
+            // Pobierz kierowcę
+            Driver driver = driverRepository.findById(autoRoute.getDriverId())
+                    .orElseThrow(() -> new RuntimeException("Nie znaleziono kierowcy o ID: " + autoRoute.getDriverId()));
+
+            // Sprawdź czy kierowca ma grafik na ten dzień
+            Optional<DriverSchedule> driverSchedule = scheduleRepository.findByDriverAndActiveTrue(driver);
+            if (driverSchedule.isEmpty()) {
+                throw new RuntimeException("Kierowca nie ma aktywnego grafiku pracy");
+            }
+            if (!driverSchedule.get().getWorkDays().contains(dayOfWeek)) {
+                throw new RuntimeException("Kierowca nie pracuje w wybranym dniu tygodnia");
+            }
+
+            // Sprawdź czy kierowca nie ma już trasy tego dnia
+            if (routeRepository.existsByDriverAndRouteDateAndStatusNot(driver, routeDate, RouteStatus.CANCELLED)) {
+                throw new RuntimeException("Kierowca ma już zaplanowaną trasę na ten dzień");
+            }
+
+            // Pobierz pojazd
+            Vehicle vehicle = vehicleRepository.findById(autoRoute.getVehicleId())
+                    .orElseThrow(() -> new RuntimeException("Nie znaleziono pojazdu o ID: " + autoRoute.getVehicleId()));
+
+            if (!vehicle.getAvailable()) {
+                throw new RuntimeException("Wybrany pojazd jest niedostępny");
+            }
+
+            // Sprawdź czy pojazd nie ma już trasy tego dnia
+            if (routeRepository.existsByVehicleAndRouteDateAndStatusNot(vehicle, routeDate, RouteStatus.CANCELLED)) {
+                throw new RuntimeException("Pojazd ma już zaplanowaną trasę na ten dzień");
+            }
+
+            // Pobierz zlecenia
+            List<Order> orders = autoRoute.getOrderIdsOrdered().stream()
+                    .map(id -> orderRepository.findById(id)
+                            .orElseThrow(() -> new RuntimeException("Nie znaleziono zlecenia o ID: " + id)))
+                    .collect(Collectors.toList());
+
+            // Sprawdź statusy zleceń
+            for (Order order : orders) {
+                if (order.getStatus() != OrderStatus.CONFIRMED && order.getStatus() != OrderStatus.PENDING) {
+                    throw new RuntimeException("Zlecenie #" + order.getId() + " ma niewłaściwy status do planowania");
+                }
+                if (order.getRoute() != null) {
+                    throw new RuntimeException("Zlecenie #" + order.getId() + " jest już przypisane do innej trasy");
+                }
+            }
+
+            // Sprawdź czy pojazd pasuje do wymagań zleceń
+            VehicleType maxRequired = orders.stream()
+                    .map(Order::getVehicleType)
+                    .max(Comparator.comparingInt(VehicleType::ordinal))
+                    .orElse(VehicleType.SMALL_VAN);
+
+            if (vehicle.getType().ordinal() < maxRequired.ordinal()) {
+                throw new RuntimeException("Wybrany pojazd (" + vehicle.getType() +
+                        ") jest za mały dla zleceń wymagających " + maxRequired);
+            }
+
+            Route route = Route.builder()
+                    .driver(driver)
+                    .vehicle(vehicle)
+                    .routeDate(routeDate)
+                    .orders(orders)
+                    .totalDistance(autoRoute.getTotalDistance())
+                    .estimatedTimeMinutes(autoRoute.getEstimatedTimeMinutes())
+                    .status(RouteStatus.PLANNED)
+                    .build();
+            route = routeRepository.save(route);
+
+            // Przypisz zlecenia do trasy
+            for (int i = 0; i < orders.size(); i++) {
+                Order order = orders.get(i);
+                order.setStatus(OrderStatus.ASSIGNED);
+                order.setDriver(driver);
+                order.setRoute(route);
+                order.setOrderSequence(i);
+                orderRepository.save(order);
+            }
+
+            createdRoutes.add(mapToRouteResponse(route));
+        }
+
+        return createdRoutes;
+    }
+
+    /**
      * Planuje trasę z ręcznym wyborem daty, kierowcy i pojazdu
      */
     @Transactional
@@ -183,12 +280,8 @@ public class RoutePlanningService {
         DayOfWeek dayOfWeek = routeDate.getDayOfWeek();
 
         // Pobierz kierowcę
-        User driver = userRepository.findById(request.getDriverId())
+        Driver driver = driverRepository.findById(request.getDriverId())
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono kierowcy o ID: " + request.getDriverId()));
-
-        if (driver.getRole() != UserRole.DRIVER) {
-            throw new RuntimeException("Wybrany użytkownik nie jest kierowcą");
-        }
 
         // Sprawdź czy kierowca ma grafik na ten dzień
         Optional<DriverSchedule> driverSchedule = scheduleRepository.findByDriverAndActiveTrue(driver);
@@ -249,7 +342,7 @@ public class RoutePlanningService {
 
         // Oblicz dystans i czas
         double totalDistance = calculateTotalDistance(optimizedOrders);
-        int estimatedTime = calculateEstimatedTime(totalDistance, optimizedOrders.size());
+        int estimatedTime = calculateTotalTime(optimizedOrders);
 
         // Utwórz trasę
         Route route = Route.builder()
@@ -275,7 +368,7 @@ public class RoutePlanningService {
         }
 
         log.info("Utworzono trasę #{} na dzień {} dla kierowcy {} z pojazdem {}, {} zleceń",
-                route.getId(), routeDate, driver.getEmail(), vehicle.getRegistrationNumber(), orders.size());
+                route.getId(), routeDate, driver.getUser().getEmail(), vehicle.getRegistrationNumber(), orders.size());
 
         return mapToRouteResponse(route);
     }
@@ -340,12 +433,37 @@ public class RoutePlanningService {
 
         // Zbuduj listę wszystkich punktów (pickup i delivery)
         List<String> waypoints = new ArrayList<>();
+        waypoints.add(vehicleBaseAddress);
         for (Order order : orders) {
             waypoints.add(order.getPickupLocation());
             waypoints.add(order.getDeliveryLocation());
         }
+        waypoints.add(vehicleBaseAddress);
 
         return googleMapsService.calculateTotalRouteDistance(waypoints);
+    }
+
+    /**
+     * Oblicza czas trasy z Google Maps API i dodaje czas obsługi.
+     */
+    private int calculateTotalTime(List<Order> orders) {
+        if (orders.isEmpty()) {
+            return 0;
+        }
+
+        // Zbuduj listę wszystkich punktów (pickup i delivery)
+        List<String> waypoints = new ArrayList<>();
+        waypoints.add(vehicleBaseAddress);
+        for (Order order : orders) {
+            waypoints.add(order.getPickupLocation());
+            waypoints.add(order.getDeliveryLocation());
+        }
+        waypoints.add(vehicleBaseAddress);
+
+        int travelTimeMinutes = googleMapsService.calculateTotalRouteDuration(waypoints);
+        int serviceTime = orders.size() * SERVICE_TIME_MINUTES; // pickup + delivery per order
+
+        return travelTimeMinutes + serviceTime;
     }
 
     private int calculateEstimatedTime(double distanceKm, int numberOfStops) {
@@ -414,7 +532,7 @@ public class RoutePlanningService {
                 .id(order.getId())
                 .title(order.getTitle())
                 .clientEmail(order.getClient().getEmail())
-                .driverEmail(order.getDriver() != null ? order.getDriver().getEmail() : null)
+                .driverEmail(order.getDriver() != null ? order.getDriver().getUser().getEmail() : null)
                 .pickupLocation(order.getPickupLocation())
                 .pickupAddress(order.getPickupAddress())
                 .pickupDate(order.getPickupDate())
@@ -434,7 +552,7 @@ public class RoutePlanningService {
         return RouteResponse.builder()
                 .id(route.getId())
                 .driverId(route.getDriver().getId())
-                .driverEmail(route.getDriver().getEmail())
+                .driverEmail(route.getDriver().getUser().getEmail())
                 .vehicleId(route.getVehicle().getId())
                 .vehicleRegistration(route.getVehicle().getRegistrationNumber())
                 .routeDate(route.getRouteDate())

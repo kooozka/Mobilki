@@ -1,10 +1,7 @@
 package com.example.demo.dispatch.service;
 
 import com.example.demo.dispatch.dto.RouteResponse;
-import com.example.demo.dispatch.model.DriverSchedule;
-import com.example.demo.dispatch.model.Route;
-import com.example.demo.dispatch.model.RouteStatus;
-import com.example.demo.dispatch.model.Vehicle;
+import com.example.demo.dispatch.model.*;
 import com.example.demo.dispatch.repository.DriverScheduleRepository;
 import com.example.demo.dispatch.repository.RouteRepository;
 import com.example.demo.dispatch.repository.VehicleRepository;
@@ -58,34 +55,9 @@ public class AutoPlanningService {
         // Walidacja (sprawdza status, datę odbioru = routeDate, deadline >= routeDate)
         validateOrders(orders, orderIds, routeDate);
 
-        // Pobierz dostępnych kierowców na ten dzień
-        DayOfWeek dayOfWeek = routeDate.getDayOfWeek();
-        List<DriverSchedule> availableSchedules = scheduleRepository.findByWorkDaysContainingAndActiveTrue(dayOfWeek);
+        List<Driver> availableDrivers = getAvailableDrivers(routeDate);
 
-        if (availableSchedules.isEmpty()) {
-            throw new RuntimeException("Brak dostępnych kierowców na dzień " + routeDate);
-        }
-
-        // Filtruj kierowców bez istniejących tras na ten dzień
-        List<User> availableDrivers = availableSchedules.stream()
-                .map(DriverSchedule::getDriver)
-                .filter(driver -> !routeRepository.existsByDriverAndRouteDateAndStatusNot(
-                        driver, routeDate, RouteStatus.CANCELLED))
-                .collect(Collectors.toList());
-
-        if (availableDrivers.isEmpty()) {
-            throw new RuntimeException("Wszyscy kierowcy mają już zaplanowane trasy na " + routeDate);
-        }
-
-        // Pobierz dostępne pojazdy
-        List<Vehicle> availableVehicles = vehicleRepository.findByAvailableTrue().stream()
-                .filter(v -> !routeRepository.existsByVehicleAndRouteDateAndStatusNot(
-                        v, routeDate, RouteStatus.CANCELLED))
-                .collect(Collectors.toList());
-
-        if (availableVehicles.isEmpty()) {
-            throw new RuntimeException("Brak dostępnych pojazdów na dzień " + routeDate);
-        }
+        List<Vehicle> availableVehicles = getAvailableVehicles(routeDate);
 
         // Algorytm przypisywania
         List<RouteResponse> createdRoutes = new ArrayList<>();
@@ -98,7 +70,7 @@ public class AutoPlanningService {
         int vehicleIndex = 0;
 
         while (!remainingOrders.isEmpty() && driverIndex < availableDrivers.size()) {
-            User driver = availableDrivers.get(driverIndex);
+            Driver driver = availableDrivers.get(driverIndex);
 
             // Znajdź odpowiedni pojazd dla pozostałych zleceń
             Vehicle vehicle = findSuitableVehicle(remainingOrders, availableVehicles, vehicleIndex);
@@ -148,7 +120,7 @@ public class AutoPlanningService {
             }
 
             log.info("Created route #{} for driver {} with vehicle {}, {} orders",
-                    route.getId(), driver.getEmail(), vehicle.getRegistrationNumber(), optimizedOrders.size());
+                    route.getId(), driver.getUser().getEmail(), vehicle.getRegistrationNumber(), optimizedOrders.size());
 
             createdRoutes.add(mapToRouteResponse(route));
 
@@ -170,10 +142,63 @@ public class AutoPlanningService {
     }
 
     /**
+     * Pobiera listę dostępnych harmonogramów kierowców na dany dzień.
+     */
+    protected List<DriverSchedule> getAvailableSchedules(LocalDate routeDate) {
+        DayOfWeek dayOfWeek = routeDate.getDayOfWeek();
+        List<DriverSchedule> availableSchedules = scheduleRepository.findByWorkDaysContainingAndActiveTrue(dayOfWeek);
+
+        if (availableSchedules.isEmpty()) {
+            throw new RuntimeException("Brak dostępnych kierowców na dzień " + routeDate);
+        }
+
+        // Filtruj kierowców bez istniejących tras na ten dzień
+        availableSchedules = availableSchedules.stream()
+                .filter(schedule -> !routeRepository.existsByDriverAndRouteDateAndStatusNot(
+                        schedule.getDriver(), routeDate, RouteStatus.CANCELLED))
+                .filter(schedule -> !schedule.getDriver().getUser().isSuspended())
+                .toList();
+
+        if (availableSchedules.isEmpty()) {
+            throw new RuntimeException("Wszyscy kierowcy mają już zaplanowane trasy na " + routeDate);
+        }
+
+        return availableSchedules;
+    }
+
+    /**
+     * Pobiera listę dostępnych kierowców na dany dzień.
+     */
+     protected List<Driver> getAvailableDrivers(LocalDate routeDate) {
+        List<DriverSchedule> availableSchedules = getAvailableSchedules(routeDate);
+
+         return availableSchedules.stream()
+                 .map(DriverSchedule::getDriver)
+                 .toList();
+     }
+
+    /**
+     * Pobiera listę dostępnych pojazdów na dany dzień.
+     */
+    protected List<Vehicle> getAvailableVehicles(LocalDate routeDate) {
+        // Pobierz dostępne pojazdy
+        List<Vehicle> availableVehicles = vehicleRepository.findByAvailableTrue().stream()
+                .filter(v -> !routeRepository.existsByVehicleAndRouteDateAndStatusNot(
+                        v, routeDate, RouteStatus.CANCELLED))
+                .toList();
+
+        if (availableVehicles.isEmpty()) {
+            throw new RuntimeException("Brak dostępnych pojazdów na dzień " + routeDate);
+        }
+
+        return availableVehicles;
+    }
+
+    /**
      * Waliduje zlecenia przed planowaniem.
      * Sprawdza: status, przypisanie do trasy, datę odbioru i deadline.
      */
-    private void validateOrders(List<Order> orders, List<Long> requestedIds, LocalDate routeDate) {
+    protected void validateOrders(List<Order> orders, List<Long> requestedIds, LocalDate routeDate) {
         if (orders.size() != requestedIds.size()) {
             throw new RuntimeException("Nie znaleziono niektórych zleceń");
         }
@@ -207,7 +232,7 @@ public class AutoPlanningService {
     /**
      * Znajduje odpowiedni pojazd dla zleceń.
      */
-    private Vehicle findSuitableVehicle(List<Order> orders, List<Vehicle> vehicles, int startIndex) {
+    protected Vehicle findSuitableVehicle(List<Order> orders, List<Vehicle> vehicles, int startIndex) {
         // Znajdź maksymalną wagę wśród zleceń
         double maxWeight = orders.stream()
                 .mapToDouble(Order::getCargoWeight)

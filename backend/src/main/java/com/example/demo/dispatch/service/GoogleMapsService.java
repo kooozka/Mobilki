@@ -78,6 +78,58 @@ public class GoogleMapsService {
     }
 
     /**
+     * Oblicza macierz odległości i czasu między wieloma punktami.
+     */
+    public DistanceMatrixResult getDistanceAndDurationMatrix(List<String> origins, List<String> destinations) {
+        int n = origins.size();
+        int m = destinations.size();
+        double[][] distanceMatrix = new double[n][m];
+        double[][] durationMatrix = new double[n][m];
+
+        try {
+            DistanceMatrix result = DistanceMatrixApi.newRequest(geoApiContext)
+                    .origins(origins.toArray(new String[0]))
+                    .destinations(destinations.toArray(new String[0]))
+                    .mode(TravelMode.DRIVING)
+                    .language("pl")
+                    .await();
+
+            for (int i = 0; i < result.rows.length; i++) {
+                DistanceMatrixRow row = result.rows[i];
+                for (int j = 0; j < row.elements.length; j++) {
+                    DistanceMatrixElement element = row.elements[j];
+                    if (element.status == DistanceMatrixElementStatus.OK) {
+                        distanceMatrix[i][j] = element.distance.inMeters / 1000.0;
+                        durationMatrix[i][j] = element.duration.inSeconds / 60.0;
+                    } else {
+                        distanceMatrix[i][j] = Double.MAX_VALUE;
+                        durationMatrix[i][j] = Double.MAX_VALUE;
+                    }
+                }
+            }
+
+            log.info("Distance and duration matrices calculated: {} origins, {} destinations", n, m);
+
+        } catch (ApiException | InterruptedException | IOException e) {
+            log.error("Error calculating distance/duration matrices: {}", e.getMessage());
+            // Fallback - wypełnij szacunkowymi wartościami
+            for (int i = 0; i < n; i++) {
+                for (int j = 0; j < m; j++) {
+                    if (origins.get(i).equalsIgnoreCase(destinations.get(j))) {
+                        distanceMatrix[i][j] = 0;
+                        durationMatrix[i][j] = 0;
+                    } else {
+                        distanceMatrix[i][j] = estimateFallbackDistance(origins.get(i), destinations.get(j));
+                        durationMatrix[i][j] = distanceMatrix[i][j] / 50 * 60; // zakładając średnią prędkość 50 km/h
+                    }
+                }
+            }
+        }
+
+        return new DistanceMatrixResult(distanceMatrix, durationMatrix);
+    }
+
+    /**
      * Oblicza macierz odległości między wieloma punktami.
      * Przydatne do optymalizacji tras.
      */
@@ -192,6 +244,23 @@ public class GoogleMapsService {
         }
 
         return Math.round(total * 10.0) / 10.0;
+    }
+
+    /**
+     * Oblicza całkowity czas podróży dla listy punktów w podanej kolejności.
+     */
+    public int calculateTotalRouteDuration(List<String> waypoints) {
+        if (waypoints.size() < 2) {
+            return 0;
+        }
+
+        int total = 0;
+        for (int i = 0; i < waypoints.size() - 1; i++) {
+            DistanceResult result = getDistance(waypoints.get(i), waypoints.get(i + 1));
+            total += result.getDurationMinutes();
+        }
+
+        return total;
     }
 
     /**
@@ -370,6 +439,19 @@ public class GoogleMapsService {
 
         public boolean isFromApi() {
             return fromApi;
+        }
+    }
+
+    /**
+     * Klasa wynikowa dla macierzy odległości.
+     */
+    public static class DistanceMatrixResult {
+        public final double[][] distanceMatrix;
+        public final double[][] durationMatrix;
+
+        public DistanceMatrixResult(double[][] distanceMatrix, double[][] durationMatrix) {
+            this.distanceMatrix = distanceMatrix;
+            this.durationMatrix = durationMatrix;
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.demo.order.repository;
 
+import com.example.demo.dispatch.model.Driver;
 import com.example.demo.order.model.Order;
 import com.example.demo.order.model.OrderStatus;
 import com.example.demo.security.model.User;
@@ -12,7 +13,7 @@ import java.util.List;
 public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findByClientOrderByCreatedAtDesc(User client);
 
-    List<Order> findByDriverOrderByCreatedAtDesc(User driver);
+    List<Order> findByDriverOrderByCreatedAtDesc(Driver driver);
 
     List<Order> findByStatusOrderByCreatedAtDesc(OrderStatus status);
 
@@ -23,13 +24,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     long countByStatus(OrderStatus status);
 
     // Nowe metody dla panelu kierowcy
-    List<Order> findByDriverOrderByPickupDateDesc(User driver);
+    List<Order> findByDriverOrderByPickupDateDesc(Driver driver);
 
-    List<Order> findByDriverAndStatusIn(User driver, List<OrderStatus> statuses);
+    List<Order> findByDriverAndStatusIn(Driver driver, List<OrderStatus> statuses);
 
-    long countByDriver(User driver);
+    long countByDriver(Driver driver);
 
-    long countByDriverAndStatus(User driver, OrderStatus status);
+    long countByDriverAndStatus(Driver driver, OrderStatus status);
 
-    long countByDriverAndStatusIn(User driver, List<OrderStatus> statuses);
+    long countByDriverAndStatusIn(Driver driver, List<OrderStatus> statuses);
 }

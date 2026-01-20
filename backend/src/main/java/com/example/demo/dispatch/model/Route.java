@@ -27,7 +27,7 @@ public class Route {
 
     @ManyToOne
     @JoinColumn(name = "driver_id", nullable = false)
-    private User driver;
+    private Driver driver;
 
     @ManyToOne
     @JoinColumn(name = "vehicle_id", nullable = false)

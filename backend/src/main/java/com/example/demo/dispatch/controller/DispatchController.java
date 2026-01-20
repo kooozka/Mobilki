@@ -1,10 +1,7 @@
 package com.example.demo.dispatch.controller;
 
 import com.example.demo.dispatch.dto.*;
-import com.example.demo.dispatch.service.AutoPlanningService;
-import com.example.demo.dispatch.service.DriverScheduleService;
-import com.example.demo.dispatch.service.RoutePlanningService;
-import com.example.demo.dispatch.service.VehicleService;
+import com.example.demo.dispatch.service.*;
 import com.example.demo.order.dto.OrderResponse;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -12,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -26,7 +24,7 @@ public class DispatchController {
     private final RoutePlanningService routePlanningService;
     private final DriverScheduleService driverScheduleService;
     private final VehicleService vehicleService;
-    private final AutoPlanningService autoPlanningService;
+    private final AutoPlanningAlgorithmService autoPlanningService;
 
     @Data
     @AllArgsConstructor
@@ -202,7 +200,7 @@ public class DispatchController {
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         try {
             var drivers = routePlanningService.getAvailableDriversForDate(date).stream()
-                    .map(driver -> new DriverResponse(driver.getId(), driver.getEmail(), true))
+                    .map(driver -> new DriverResponse(driver.getId(), driver.getUser().getEmail(), true))
                     .toList();
             return ResponseEntity.ok(drivers);
         } catch (RuntimeException e) {
@@ -266,12 +264,102 @@ public class DispatchController {
     // ========== AUTO-PLANOWANIE ==========
 
     @PostMapping("/routes/auto-plan")
-    public ResponseEntity<?> autoPlanRoutes(@RequestBody AutoPlanRequest request) {
+    public ResponseEntity<?> autoPlanRoutes(
+            @RequestBody AutoPlanRequest request,
+            Authentication authentication) {
         try {
-            List<RouteResponse> routes = autoPlanningService.autoPlanRoutes(
-                    request.getOrderIds(),
-                    request.getRouteDate());
-            return ResponseEntity.ok(routes);
+            String email = authentication.getName();
+            autoPlanningService.autoPlanRoutes(
+                    email,
+                    request.getRouteDate(),
+                    request.getOrderIds()
+                    );
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/routes/auto-plan/pending")
+    public ResponseEntity getPendingRoutes(Authentication authentication) {
+        try {
+            String email = authentication.getName();
+            List<AutoPlanResponse> responses = autoPlanningService.getPendingAutoPlannings(email);
+            return ResponseEntity.ok(responses);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/routes/auto-plan/awaiting")
+    public ResponseEntity getAwaitingRoutes(Authentication authentication) {
+        try {
+            String email = authentication.getName();
+            AutoPlanResponse response = autoPlanningService.getAwaitingAutoPlanning(email);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @GetMapping("routes/auto-plan/events")
+    public ResponseEntity getAutoPlanningEvents(Authentication authentication) {
+        try {
+            String email = authentication.getName();
+            List<AutoPlanningEvent> responses = autoPlanningService.getAutoPlanningEvents(email);
+            return ResponseEntity.ok(responses);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/routes/auto-plan/{id}/accept")
+    public ResponseEntity<?> acceptAutoPlannedRoutes(
+            @PathVariable Long id,
+            Authentication authentication) {
+        try {
+            String email = authentication.getName();
+            autoPlanningService.acceptAutoPlanning(id, email);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/routes/auto-plan/{id}/reject")
+    public ResponseEntity<?> rejectAutoPlannedRoutes(
+            @PathVariable Long id,
+            Authentication authentication) {
+        try {
+            String email = authentication.getName();
+            autoPlanningService.rejectAutoPlanning(id, email);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/routes/auto-plan/{id}/consume")
+    public ResponseEntity<?> consumeAutoPlannedRoutes(
+            @PathVariable Long id,
+            Authentication authentication) {
+        try {
+            String email = authentication.getName();
+            autoPlanningService.consumeAutoPlanning(id, email);
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/routes/auto-plan/{date}")
+    public ResponseEntity<?> getAutoPlannedRoutes(
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            Authentication authentication) {
+        try {
+            String email = authentication.getName();
+            AutoPlanResponse response = autoPlanningService.getOptimizationResult(email, date);
+            return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(new ErrorResponse(e.getMessage()));
         }

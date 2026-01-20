@@ -1,5 +1,6 @@
 package com.example.demo.order.model;
 
+import com.example.demo.dispatch.model.Driver;
 import com.example.demo.dispatch.model.Route;
 import com.example.demo.security.model.User;
 import jakarta.persistence.*;
@@ -29,7 +30,7 @@ public class Order {
 
     @ManyToOne
     @JoinColumn(name = "driver_id")
-    private User driver;
+    private Driver driver;
 
     // Trasa do której należy zlecenie (może być null jeśli nie przypisane)
     @ManyToOne

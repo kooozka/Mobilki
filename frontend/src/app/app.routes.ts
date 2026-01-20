@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { LoginComponent } from './components/login/login.component';
-import { RegisterComponent } from './components/register/register.component';
 import { HomeComponent } from './components/home/home.component';
 import { ClientDashboardComponent } from './components/client-dashboard/client-dashboard.component';
 import { CreateOrderComponent } from './components/create-order/create-order.component';
@@ -15,47 +14,46 @@ import { roleGuard } from './guards/role.guard';
 export const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: 'login', component: LoginComponent },
-  { path: 'register', component: RegisterComponent },
   { path: 'home', component: HomeComponent, canActivate: [authGuard] },
-  { 
-    path: 'client/dashboard', 
-    component: ClientDashboardComponent, 
+  {
+    path: 'client/dashboard',
+    component: ClientDashboardComponent,
     canActivate: [authGuard, roleGuard],
     data: { roles: ['CLIENT'] }
   },
-  { 
-    path: 'client/create-order', 
-    component: CreateOrderComponent, 
+  {
+    path: 'client/create-order',
+    component: CreateOrderComponent,
     canActivate: [authGuard, roleGuard],
     data: { roles: ['CLIENT'] }
   },
-  { 
-    path: 'client/order-history', 
-    component: OrderHistoryComponent, 
+  {
+    path: 'client/order-history',
+    component: OrderHistoryComponent,
     canActivate: [authGuard, roleGuard],
     data: { roles: ['CLIENT'] }
   },
-  { 
-    path: 'client/order-details/:id', 
-    component: OrderDetailsComponent, 
+  {
+    path: 'client/order-details/:id',
+    component: OrderDetailsComponent,
     canActivate: [authGuard, roleGuard],
     data: { roles: ['CLIENT'] }
   },
-  { 
-    path: 'dispatch-manager/dashboard', 
-    component: DispatchManagerDashboardComponent, 
+  {
+    path: 'dispatch-manager/dashboard',
+    component: DispatchManagerDashboardComponent,
     canActivate: [authGuard, roleGuard],
     data: { roles: ['DISPATCH_MANAGER'] }
   },
-  { 
-    path: 'driver/dashboard', 
-    component: DriverDashboardComponent, 
+  {
+    path: 'driver/dashboard',
+    component: DriverDashboardComponent,
     canActivate: [authGuard, roleGuard],
     data: { roles: ['DRIVER'] }
   },
-  { 
-    path: 'admin/dashboard', 
-    component: AdminDashboardComponent, 
+  {
+    path: 'admin/dashboard',
+    component: AdminDashboardComponent,
     canActivate: [authGuard, roleGuard],
     data: { roles: ['ADMIN'] }
   },

@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { DispatchService, DriverResponse, VehicleResponse, DriverScheduleResponse, RouteResponse, DriverScheduleRequest, VehicleRequest } from '../../services/dispatch.service';
 import { OrderResponse } from '../../services/order.service';
+import {AutoPlanningEvent, AutoPlanResponse, AutoPlanRoute} from '../../services/dispatch.classes';
 
 @Component({
   selector: 'app-dispatch-manager-dashboard',
@@ -12,7 +13,7 @@ import { OrderResponse } from '../../services/order.service';
   templateUrl: './dispatch-manager-dashboard.component.html',
   styleUrl: './dispatch-manager-dashboard.component.css'
 })
-export class DispatchManagerDashboardComponent implements OnInit {
+export class DispatchManagerDashboardComponent implements OnInit, OnDestroy {
   userEmail: string = '';
   activeTab: string = 'orders';
 
@@ -82,6 +83,12 @@ export class DispatchManagerDashboardComponent implements OnInit {
   errorMessage = '';
   successMessage = '';
 
+  // Auto Planning
+  pendingAutoPlannings: AutoPlanResponse[] = [];
+  autoPlanningEvents: AutoPlanningEvent[] = [];
+  awaitingAutoPlan: AutoPlanResponse | null = null;
+  private intervalId: any;
+
   vehicleTypes = ['SMALL_VAN', 'MEDIUM_TRUCK', 'LARGE_TRUCK', 'SEMI_TRUCK'];
   vehicleTypeMaxWeights: { [key: string]: number } = {
     'SMALL_VAN': 1500,
@@ -102,7 +109,8 @@ export class DispatchManagerDashboardComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private dispatchService: DispatchService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {
     const user = this.authService.getCurrentUser();
     this.userEmail = user?.email || '';
@@ -110,6 +118,31 @@ export class DispatchManagerDashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadData();
+
+    // Preset active tab from query param
+    this.route.queryParams.subscribe(params => {
+      if (params['tab']) {
+        this.activeTab = params['tab'];
+      }
+    });
+
+    // Load awaiting auto plan on init
+    this.loadAwaitingAutoPlan();
+
+    // Set up periodic refresh every 10 seconds
+    this.intervalId = setInterval(() => {
+      this.loadPendingAutoPlannings();
+      this.loadAutoPlanningEvents();
+      if (this.plannedRoutes.length === 0) {
+        this.loadAwaitingAutoPlan();
+      }
+    }, 10000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+    }
   }
 
   loadData(): void {
@@ -118,6 +151,8 @@ export class DispatchManagerDashboardComponent implements OnInit {
     this.loadVehicles();
     this.loadSchedules();
     this.loadRoutes();
+    this.loadPendingAutoPlannings();
+    this.loadAutoPlanningEvents();
   }
 
   loadOrders(): void {
@@ -189,9 +224,60 @@ export class DispatchManagerDashboardComponent implements OnInit {
     });
   }
 
+  loadPendingAutoPlannings(): void {
+    this.dispatchService.getPendingRoutes().subscribe({
+      next: (plannings) => this.pendingAutoPlannings = plannings,
+      error: (err) => console.error('Error loading pending auto plannings:', err)
+    });
+  }
+
+  loadAutoPlanningEvents(): void {
+    this.dispatchService.getAutoPlanningEvents().subscribe({
+      next: (events) => this.autoPlanningEvents = events,
+      error: (err) => console.error('Error loading auto planning events:', err)
+    });
+  }
+
+  loadAwaitingAutoPlan(): void {
+    if (this.awaitingAutoPlan)
+      return;
+    this.dispatchService.getAwaitingRoutes().subscribe({
+      next: (awaiting) => {
+        this.awaitingAutoPlan = awaiting;
+        // No longer showing modal, just set the data
+      },
+      error: (err) => console.error('Error loading awaiting auto plan:', err)
+    });
+  }
+
+  private mapAutoPlanRouteToRouteResponse(autoRoute: any): RouteResponse {
+    const driver = this.drivers.find(d => d.id === autoRoute.driverId);
+    const vehicle = this.vehicles.find(v => v.id === autoRoute.vehicleId);
+    return {
+      id: 0, // Dummy id since auto plan route doesn't have one
+      driverId: autoRoute.driverId,
+      driverEmail: driver ? driver.email : `Driver ${autoRoute.driverId}`,
+      vehicleId: autoRoute.vehicleId,
+      vehicleRegistration: vehicle ? vehicle.registrationNumber : `Vehicle ${autoRoute.vehicleId}`,
+      routeDate: autoRoute.routeDate,
+      orders: autoRoute.orders,
+      totalDistance: autoRoute.totalDistance,
+      estimatedTimeMinutes: autoRoute.estimatedTimeMinutes,
+      status: 'PLANNED',
+      createdAt: new Date().toISOString()
+    };
+  }
+
   setActiveTab(tab: string): void {
     this.activeTab = tab;
     this.clearMessages();
+
+    // Update URL query param
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: tab },
+      queryParamsHandling: 'merge'
+    });
   }
 
   // ========== ZLECENIA ==========
@@ -483,7 +569,7 @@ export class DispatchManagerDashboardComponent implements OnInit {
       next: (route: RouteResponse) => {
         this.plannedRoutes = [route];
         this.showRoutePlanDialog = false;
-        this.showRouteResult = true;
+        // this.showRouteResult = true;
         this.successMessage = `Zaplanowano trasę #${route.id} na ${route.routeDate}`;
         this.selectedOrders.clear();
         this.loadOrders();
@@ -531,6 +617,8 @@ export class DispatchManagerDashboardComponent implements OnInit {
       return;
     }
 
+    this.errorMessage = '';
+
     this.autoPlanLoading = true;
     const orderIds = Array.from(this.selectedOrders);
 
@@ -539,21 +627,25 @@ export class DispatchManagerDashboardComponent implements OnInit {
         this.autoPlanLoading = false;
         this.showAutoPlanDialog = false;
 
-        if (routes.length > 0) {
-          this.plannedRoutes = routes;
-          this.showRouteResult = true;
-          this.successMessage = `Automatycznie zaplanowano ${routes.length} tras dla ${orderIds.length} zleceń`;
-        } else {
-          this.errorMessage = 'Nie udało się zaplanować tras - brak dostępnych zasobów';
-        }
+        // if (routes.length > 0) {
+        //   this.plannedRoutes = routes;
+        //   this.showRouteResult = true;
+        //   this.successMessage = `Automatycznie zaplanowano ${routes.length} tras dla ${orderIds.length} zleceń`;
+        // } else {
+        //   this.errorMessage = 'Nie udało się zaplanować tras - brak dostępnych zasobów';
+        // }
 
         this.selectedOrders.clear();
         this.loadOrders();
         this.loadRoutes();
+        this.loadPendingAutoPlannings();
+        this.loadAutoPlanningEvents();
+
         setTimeout(() => this.successMessage = '', 5000);
       },
       error: (err: any) => {
         this.autoPlanLoading = false;
+        this.showAutoPlanDialog = false;
         this.errorMessage = err.error?.message || 'Błąd podczas auto-planowania tras';
       }
     });
@@ -668,5 +760,54 @@ export class DispatchManagerDashboardComponent implements OnInit {
   logout(): void {
     this.authService.logout();
     this.router.navigate(['/login']);
+  }
+
+  consumeAutoPlanningEvent(event: AutoPlanningEvent): void {
+    this.dispatchService.consumeAutoPlannedRoutes(event.planningId).subscribe({
+      next: () => {
+        this.loadAutoPlanningEvents();
+      },
+      error: (err) => {
+        this.errorMessage = err.error?.message || 'Błąd podczas oznaczania wydarzenia';
+      }
+    });
+  }
+
+  acceptAutoPlan(): void {
+    if (!this.awaitingAutoPlan) return;
+    this.dispatchService.acceptAutoPlannedRoutes(this.awaitingAutoPlan.planningId).subscribe({
+      next: () => {
+        this.successMessage = 'Propozycja auto-planowania została zaakceptowana';
+        this.awaitingAutoPlan = null;
+        this.loadRoutes();
+        this.loadAutoPlanningEvents();
+        setTimeout(() => this.successMessage = '', 3000);
+      },
+      error: (err) => {
+        this.errorMessage = err.error?.message || 'Błąd podczas akceptowania propozycji';
+      }
+    });
+  }
+
+  rejectAutoPlan(): void {
+    if (!this.awaitingAutoPlan) return;
+    this.dispatchService.rejectAutoPlannedRoutes(this.awaitingAutoPlan.planningId).subscribe({
+      next: () => {
+        this.successMessage = 'Propozycja auto-planowania została odrzucona';
+        this.awaitingAutoPlan = null;
+        this.loadAutoPlanningEvents();
+        setTimeout(() => this.successMessage = '', 3000);
+      },
+      error: (err) => {
+        this.errorMessage = err.error?.message || 'Błąd podczas odrzucania propozycji';
+      }
+    });
+  }
+
+  onRowClick(orderId: number, event: Event): void {
+    const target = event.target as HTMLElement;
+    if (target.tagName !== 'INPUT') {
+      this.toggleOrderSelection(orderId);
+    }
   }
 }

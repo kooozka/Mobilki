@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { OrderResponse } from './order.service';
+import {AutoPlanningEvent, AutoPlanResponse} from './dispatch.classes';
 
 export interface DriverResponse {
   id: number;
@@ -166,7 +167,7 @@ export class DispatchService {
     return this.http.get<DriverResponse[]>(`${this.apiUrl}/routes/available-drivers/${date}`);
   }
 
-  // Pobierz pojazdy dostępne na dany dzień  
+  // Pobierz pojazdy dostępne na dany dzień
   getAvailableVehiclesForDate(date: string): Observable<VehicleResponse[]> {
     return this.http.get<VehicleResponse[]>(`${this.apiUrl}/routes/available-vehicles/${date}`);
   }
@@ -200,5 +201,34 @@ export class DispatchService {
       routeDate
     });
   }
+
+  getPendingRoutes(): Observable<AutoPlanResponse[]> {
+    return this.http.get<AutoPlanResponse[]>(`${this.apiUrl}/routes/auto-plan/pending`);
+  }
+
+  getAwaitingRoutes(): Observable<AutoPlanResponse> {
+    return this.http.get<AutoPlanResponse>(`${this.apiUrl}/routes/auto-plan/awaiting`);
+  }
+
+  getAutoPlanningEvents(): Observable<AutoPlanningEvent[]> {
+    return this.http.get<AutoPlanningEvent[]>(`${this.apiUrl}/routes/auto-plan/events`);
+  }
+
+  acceptAutoPlannedRoutes(id: number): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/routes/auto-plan/${id}/accept`, {});
+  }
+
+  rejectAutoPlannedRoutes(id: number): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/routes/auto-plan/${id}/reject`, {});
+  }
+
+  consumeAutoPlannedRoutes(id: number): Observable<void> {
+    return this.http.post<void>(`${this.apiUrl}/routes/auto-plan/${id}/consume`, {});
+  }
+
+  getAutoPlannedRoutes(date: string): Observable<AutoPlanResponse> {
+    return this.http.get<AutoPlanResponse>(`${this.apiUrl}/routes/auto-plan/${date}`);
+  }
+
 }
 

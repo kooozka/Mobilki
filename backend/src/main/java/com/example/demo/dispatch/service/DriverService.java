@@ -3,22 +3,22 @@ package com.example.demo.dispatch.service;
 import com.example.demo.dispatch.dto.DriverScheduleResponse;
 import com.example.demo.dispatch.dto.DriverStatsResponse;
 import com.example.demo.dispatch.dto.RouteResponse;
+import com.example.demo.dispatch.model.Driver;
 import com.example.demo.dispatch.model.DriverSchedule;
 import com.example.demo.dispatch.model.Route;
 import com.example.demo.dispatch.model.RouteStatus;
+import com.example.demo.dispatch.repository.DriverRepository;
 import com.example.demo.dispatch.repository.DriverScheduleRepository;
 import com.example.demo.dispatch.repository.RouteRepository;
 import com.example.demo.order.dto.OrderResponse;
 import com.example.demo.order.model.Order;
 import com.example.demo.order.model.OrderStatus;
 import com.example.demo.order.repository.OrderRepository;
-import com.example.demo.security.model.User;
-import com.example.demo.security.repository.UserRepository;
+import com.example.demo.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,20 +28,21 @@ public class DriverService {
 
     private final RouteRepository routeRepository;
     private final OrderRepository orderRepository;
-    private final UserRepository userRepository;
+    private final DriverRepository driverRepository;
     private final DriverScheduleRepository driverScheduleRepository;
+    private final OrderService orderService;
 
     // ========== POBIERANIE TRAS ==========
 
     public List<RouteResponse> getRoutesForDriver(String email) {
-        User driver = getUserByEmail(email);
+        Driver driver = getDriverByEmail(email);
         return routeRepository.findByDriverOrderByRouteDateDesc(driver).stream()
                 .map(this::mapRouteToResponse)
                 .collect(Collectors.toList());
     }
 
     public List<RouteResponse> getActiveRoutesForDriver(String email) {
-        User driver = getUserByEmail(email);
+        Driver driver = getDriverByEmail(email);
         return routeRepository.findByDriverAndStatusIn(driver,
                 List.of(RouteStatus.PLANNED, RouteStatus.IN_PROGRESS)).stream()
                 .map(this::mapRouteToResponse)
@@ -49,7 +50,7 @@ public class DriverService {
     }
 
     public RouteResponse getRouteByIdForDriver(Long routeId, String email) {
-        User driver = getUserByEmail(email);
+        Driver driver = getDriverByEmail(email);
         Route route = routeRepository.findById(routeId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono trasy"));
 
@@ -63,17 +64,17 @@ public class DriverService {
     // ========== POBIERANIE ZLECEŃ ==========
 
     public List<OrderResponse> getOrdersForDriver(String email) {
-        User driver = getUserByEmail(email);
+        Driver driver = getDriverByEmail(email);
         return orderRepository.findByDriverOrderByPickupDateDesc(driver).stream()
-                .map(this::mapOrderToResponse)
+                .map(orderService::mapToResponse)
                 .collect(Collectors.toList());
     }
 
     public List<OrderResponse> getActiveOrdersForDriver(String email) {
-        User driver = getUserByEmail(email);
+        Driver driver = getDriverByEmail(email);
         return orderRepository.findByDriverAndStatusIn(driver,
                 List.of(OrderStatus.ASSIGNED, OrderStatus.IN_PROGRESS)).stream()
-                .map(this::mapOrderToResponse)
+                .map(orderService::mapToResponse)
                 .collect(Collectors.toList());
     }
 
@@ -81,7 +82,7 @@ public class DriverService {
 
     @Transactional
     public RouteResponse startRoute(Long routeId, String email) {
-        User driver = getUserByEmail(email);
+        Driver driver = getDriverByEmail(email);
         Route route = routeRepository.findById(routeId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono trasy"));
 
@@ -108,7 +109,7 @@ public class DriverService {
 
     @Transactional
     public RouteResponse completeRoute(Long routeId, String email) {
-        User driver = getUserByEmail(email);
+        Driver driver = getDriverByEmail(email);
         Route route = routeRepository.findById(routeId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono trasy"));
 
@@ -136,7 +137,7 @@ public class DriverService {
 
     @Transactional
     public OrderResponse pickupOrder(Long orderId, String email) {
-        User driver = getUserByEmail(email);
+        Driver driver = getDriverByEmail(email);
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono zlecenia"));
 
@@ -149,12 +150,12 @@ public class DriverService {
         }
 
         order.setStatus(OrderStatus.IN_PROGRESS);
-        return mapOrderToResponse(orderRepository.save(order));
+        return orderService.mapToResponse(orderRepository.save(order));
     }
 
     @Transactional
     public OrderResponse deliverOrder(Long orderId, String email) {
-        User driver = getUserByEmail(email);
+        Driver driver = getDriverByEmail(email);
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono zlecenia"));
 
@@ -167,13 +168,13 @@ public class DriverService {
         }
 
         order.setStatus(OrderStatus.COMPLETED);
-        return mapOrderToResponse(orderRepository.save(order));
+        return orderService.mapToResponse(orderRepository.save(order));
     }
 
     // ========== GRAFIK PRACY ==========
 
     public DriverScheduleResponse getScheduleForDriver(String email) {
-        User driver = getUserByEmail(email);
+        Driver driver = getDriverByEmail(email);
         List<DriverSchedule> schedules = driverScheduleRepository.findByDriver(driver);
         if (schedules.isEmpty()) {
             throw new RuntimeException("Nie masz przypisanego grafiku pracy");
@@ -184,7 +185,7 @@ public class DriverService {
     // ========== STATYSTYKI ==========
 
     public DriverStatsResponse getDriverStats(String email) {
-        User driver = getUserByEmail(email);
+        Driver driver = getDriverByEmail(email);
 
         long totalOrders = orderRepository.countByDriver(driver);
         long completedOrders = orderRepository.countByDriverAndStatus(driver, OrderStatus.COMPLETED);
@@ -211,8 +212,8 @@ public class DriverService {
 
     // ========== POMOCNICZE ==========
 
-    private User getUserByEmail(String email) {
-        return userRepository.findByEmail(email)
+    private Driver getDriverByEmail(String email) {
+        return driverRepository.findByUser_Email(email)
                 .orElseThrow(() -> new RuntimeException("Nie znaleziono użytkownika"));
     }
 
@@ -220,12 +221,12 @@ public class DriverService {
         return RouteResponse.builder()
                 .id(route.getId())
                 .driverId(route.getDriver().getId())
-                .driverEmail(route.getDriver().getEmail())
+                .driverEmail(route.getDriver().getUser().getEmail())
                 .vehicleId(route.getVehicle().getId())
                 .vehicleRegistration(route.getVehicle().getRegistrationNumber())
                 .routeDate(route.getRouteDate())
                 .orders(route.getOrders().stream()
-                        .map(this::mapOrderToResponse)
+                        .map(orderService::mapToResponse)
                         .collect(Collectors.toList()))
                 .totalDistance(route.getTotalDistance())
                 .estimatedTimeMinutes(route.getEstimatedTimeMinutes())
@@ -234,36 +235,13 @@ public class DriverService {
                 .build();
     }
 
-    private OrderResponse mapOrderToResponse(Order order) {
-        return OrderResponse.builder()
-                .id(order.getId())
-                .title(order.getTitle())
-                .clientEmail(order.getClient().getEmail())
-                .driverEmail(order.getDriver() != null ? order.getDriver().getEmail() : null)
-                .pickupLocation(order.getPickupLocation())
-                .pickupAddress(order.getPickupAddress())
-                .pickupDate(order.getPickupDate())
-                .deliveryLocation(order.getDeliveryLocation())
-                .deliveryAddress(order.getDeliveryAddress())
-                .deliveryDeadline(order.getDeliveryDeadline())
-                .vehicleType(order.getVehicleType())
-                .cargoWeight(order.getCargoWeight())
-                .description(order.getDescription())
-                .price(order.getPrice())
-                .status(order.getStatus())
-                .createdAt(order.getCreatedAt())
-                .updatedAt(order.getUpdatedAt())
-                .confirmedAt(order.getConfirmedAt())
-                .cancelledAt(order.getCancelledAt())
-                .cancellationReason(order.getCancellationReason())
-                .build();
-    }
+
 
     private DriverScheduleResponse mapScheduleToResponse(DriverSchedule schedule) {
         return DriverScheduleResponse.builder()
                 .id(schedule.getId())
                 .driverId(schedule.getDriver().getId())
-                .driverEmail(schedule.getDriver().getEmail())
+                .driverEmail(schedule.getDriver().getUser().getEmail())
                 .workDays(schedule.getWorkDays())
                 .workStartTime(schedule.getWorkStartTime())
                 .workEndTime(schedule.getWorkEndTime())

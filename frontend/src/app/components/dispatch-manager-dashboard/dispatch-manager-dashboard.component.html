@@ -30,6 +30,28 @@
   <div class="alert alert-error" *ngIf="errorMessage">{{ errorMessage }}</div>
   <div class="alert alert-success" *ngIf="successMessage">{{ successMessage }}</div>
 
+  <!-- Pending Auto Plannings -->
+  <div class="pending-plannings" *ngIf="pendingAutoPlannings.length > 0">
+    <h3>Trwające auto-planowania</h3>
+    <div class="planning-card" *ngFor="let planning of pendingAutoPlannings">
+      <div class="loading-spinner"></div>
+      <div class="planning-info">
+        <span>Planowanie na {{ planning.planningDate }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auto Planning Events -->
+  <div class="planning-events" *ngIf="autoPlanningEvents.length > 0">
+    <h3>Wydarzenia auto-planowania</h3>
+    <div class="event-card" *ngFor="let event of autoPlanningEvents" [ngClass]="{'alert-success': event.status === 'COMPLETED', 'alert-error': event.status === 'FAILED'}">
+      <div class="event-info">
+        <span>{{ event.status === 'COMPLETED' ? 'Ukończone planowanie' : 'Niepowodzenie planowania' }}  na {{ event.planningDate }}</span>
+      </div>
+      <button class="btn-tick" (click)="consumeAutoPlanningEvent(event)">✕</button>
+    </div>
+  </div>
+
   <!-- Tab: Zlecenia -->
   <div class="tab-content" *ngIf="activeTab === 'orders'">
     <div class="section">
@@ -170,7 +192,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let order of filteredConfirmedOrders" [class.selected]="isOrderSelected(order.id)">
+            <tr *ngFor="let order of filteredConfirmedOrders" [class.selected]="isOrderSelected(order.id)" (click)="onRowClick(order.id, $event)">
               <td>
                 <input type="checkbox" [checked]="isOrderSelected(order.id)" (change)="toggleOrderSelection(order.id)">
               </td>
@@ -202,6 +224,53 @@
       <p class="empty-message" *ngIf="confirmedOrders.length === 0">
         Brak potwierdzonych zleceń do zaplanowania
       </p>
+    </div>
+
+    <div class="section" *ngIf="awaitingAutoPlan">
+      <h2>Propozycja auto-planowania</h2>
+      <div class="planned-routes">
+        <div class="planned-route" *ngFor="let route of awaitingAutoPlan.routes">
+          <div class="route-summary">
+            <h3>Trasa propozycji</h3>
+            <div class="route-info">
+              <span><strong>Kierowca:</strong> {{ route.driverEmail || 'Driver ' + route.driverId }}</span>
+              <span><strong>Pojazd:</strong> {{ route.vehicleRegistration || 'Vehicle ' + route.vehicleId }}</span>
+              <span><strong>Data:</strong> {{ route.routeDate }}</span>
+            </div>
+            <div class="route-stats">
+              <span class="stat">
+                <span class="stat-value">{{ route.totalDistance }}</span>
+                <span class="stat-label">km</span>
+              </span>
+              <span class="stat">
+                <span class="stat-value">{{ formatTime(route.estimatedTimeMinutes) }}</span>
+                <span class="stat-label">czas</span>
+              </span>
+              <span class="stat">
+                <span class="stat-value">{{ route.orders.length }}</span>
+                <span class="stat-label">zleceń</span>
+              </span>
+            </div>
+          </div>
+          <div class="route-orders">
+            <h4>Kolejność punktów:</h4>
+            <div class="order-sequence">
+              <div class="sequence-item" *ngFor="let order of route.orders; let i = index">
+                <span class="sequence-number">{{ i + 1 }}</span>
+                <div class="sequence-details">
+                  <span class="pickup">📦 {{ order.pickupLocation }}</span>
+                  <span class="arrow">→</span>
+                  <span class="delivery">🏠 {{ order.deliveryLocation }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="rejectAutoPlan()">Odrzuć</button>
+        <button class="btn-primary" (click)="acceptAutoPlan()">Akceptuj</button>
+      </div>
     </div>
 
     <div class="section" *ngIf="routes.length > 0">
@@ -493,3 +562,6 @@
     </div>
   </div>
 </div>
+
+
+

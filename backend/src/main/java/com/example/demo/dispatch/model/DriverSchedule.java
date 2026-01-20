@@ -1,6 +1,5 @@
 package com.example.demo.dispatch.model;
 
-import com.example.demo.security.model.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,7 +24,7 @@ public class DriverSchedule {
 
     @ManyToOne
     @JoinColumn(name = "driver_id", nullable = false)
-    private User driver;
+    private Driver driver;
 
     // Pojazd usunięty - przypisywany bezpośrednio do trasy, nie do kierowcy
 

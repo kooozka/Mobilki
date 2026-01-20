@@ -1,5 +1,8 @@
 package com.example.demo.config;
 
+import com.example.demo.dispatch.model.Driver;
+import com.example.demo.dispatch.repository.DriverRepository;
+import com.example.demo.order.model.VehicleType;
 import com.example.demo.security.model.User;
 import com.example.demo.security.model.UserRole;
 import com.example.demo.security.repository.UserRepository;
@@ -12,6 +15,9 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -21,6 +27,7 @@ public class DataLoader implements ApplicationRunner {
     private static final Logger logger = LoggerFactory.getLogger(DataLoader.class);
 
     private final UserRepository userRepository;
+    private final DriverRepository driverRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${app.users.admin.email:admin@example.com}")
@@ -48,6 +55,7 @@ public class DataLoader implements ApplicationRunner {
     private String driverPassword;
 
     @Override
+    @Transactional
     public void run(ApplicationArguments args) throws Exception {
         try {
             if (!userRepository.existsByEmail(adminEmail)) {
@@ -55,6 +63,7 @@ public class DataLoader implements ApplicationRunner {
                         .email(adminEmail)
                         .password(passwordEncoder.encode(adminPassword))
                         .role(UserRole.ADMIN)
+                        .suspended(false)
                         .build();
 
                 userRepository.save(admin);
@@ -67,6 +76,7 @@ public class DataLoader implements ApplicationRunner {
                         .email(clientEmail)
                         .password(passwordEncoder.encode(clientPassword))
                         .role(UserRole.CLIENT)
+                        .suspended(false)
                         .build();
 
                 userRepository.save(client);
@@ -79,6 +89,7 @@ public class DataLoader implements ApplicationRunner {
                         .email(dispatchManagerEmail)
                         .password(passwordEncoder.encode(dispatchManagerPassword))
                         .role(UserRole.DISPATCH_MANAGER)
+                        .suspended(false)
                         .build();
                 userRepository.save(dispatchManager);
                 logger.info("Default dispatch manager user created: {}", dispatchManagerEmail);
@@ -86,12 +97,18 @@ public class DataLoader implements ApplicationRunner {
                 logger.debug("Dispatch manager user already exists: {}", dispatchManagerEmail);
             }
             if (!userRepository.existsByEmail(driverEmail)) {
-                User driver = User.builder()
+                User driverUser = User.builder()
                         .email(driverEmail)
                         .password(passwordEncoder.encode(driverPassword))
                         .role(UserRole.DRIVER)
+                        .suspended(false)
                         .build();
-                userRepository.save(driver);
+                userRepository.save(driverUser);
+                Driver driver = Driver.builder()
+                        .user(userRepository.findById(driverUser.getId()).orElseThrow())
+                        .licenseTypes(Set.of(VehicleType.values()))
+                        .build();
+                driverRepository.save(driver);
                 logger.info("Default driver user created: {}", driverEmail);
             } else {
                 logger.debug("Driver user already exists: {}", driverEmail);
@@ -101,4 +118,3 @@ public class DataLoader implements ApplicationRunner {
         }
     }
 }
-

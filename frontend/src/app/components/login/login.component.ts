@@ -1,12 +1,12 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { AuthService, LoginRequest } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css'
 })
@@ -36,7 +36,7 @@ export class LoginComponent {
         }, 500);
       },
       error: (error) => {
-        this.errorMessage = error.error?.message || 'Login failed. Please try again.';
+        this.errorMessage = error.error?.message || 'Logowanie nie powiodło się. Spróbuj ponownie.';
       }
     });
   }
